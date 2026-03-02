@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -63,7 +63,6 @@ export default function LoginPage() {
         throw new Error(data.message || 'Failed to verify OTP');
       }
 
-      // Store token
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
 
@@ -80,29 +79,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-4 relative overflow-hidden">
-      {/* Futuristic background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 right-20 w-64 h-64 bg-cyan-100/30 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-20 left-20 w-96 h-96 bg-blue-100/30 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-blue-100/20 to-purple-100/20 rounded-full blur-3xl"></div>
-      </div>
-
-      <div className="w-full max-w-md relative z-10">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-white flex items-center justify-center px-4">
+      <div className="w-full max-w-md">
         {/* Header */}
-        <div className="text-center mb-10">
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-cyan-600 to-blue-600 bg-clip-text text-transparent">
-            Welcome Back
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold mb-2 text-gray-900">
+            Welcome <span className="text-emerald-600">Back</span>
           </h1>
           <p className="text-gray-600">Login to your account</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-2xl border border-gray-100 p-8">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
           {step === 'email' ? (
             <form onSubmit={handleSendOTP} className="space-y-6">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
                   Email Address
                 </label>
                 <input
@@ -111,20 +103,20 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 outline-none transition-all bg-white text-gray-900"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all bg-white text-gray-900"
                   placeholder="you@example.com"
                   disabled={loading}
                 />
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                   {error}
                 </div>
               )}
 
               {success && (
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm">
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm">
                   {success}
                 </div>
               )}
@@ -132,7 +124,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white py-3 rounded-xl font-medium hover:from-cyan-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
               >
                 {loading ? 'Sending...' : 'Send OTP'}
               </button>
@@ -140,7 +132,7 @@ export default function LoginPage() {
           ) : (
             <form onSubmit={handleVerifyOTP} className="space-y-6">
               <div>
-                <label htmlFor="otp" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="otp" className="block text-sm font-semibold text-gray-700 mb-2">
                   Enter OTP
                 </label>
                 <input
@@ -150,7 +142,7 @@ export default function LoginPage() {
                   onChange={(e) => setOtp(e.target.value)}
                   required
                   maxLength={6}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200 outline-none transition-all bg-white text-gray-900 text-center text-2xl tracking-widest font-mono"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all bg-white text-gray-900 text-center text-2xl tracking-widest font-mono"
                   placeholder="000000"
                   disabled={loading}
                 />
@@ -160,13 +152,13 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                   {error}
                 </div>
               )}
 
               {success && (
-                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm">
+                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm">
                   {success}
                 </div>
               )}
@@ -175,7 +167,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white py-3 rounded-xl font-medium hover:from-cyan-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                  className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                 >
                   {loading ? 'Verifying...' : 'Verify & Login'}
                 </button>
@@ -197,7 +189,7 @@ export default function LoginPage() {
         <div className="text-center mt-6">
           <p className="text-gray-600">
             Don't have an account?{' '}
-            <a href="/signup" className="text-cyan-600 font-medium hover:text-cyan-700 transition-colors">
+            <a href="/signup" className="text-emerald-600 font-semibold hover:text-emerald-700 transition-colors">
               Sign up
             </a>
           </p>

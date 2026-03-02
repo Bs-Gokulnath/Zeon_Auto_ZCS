@@ -92,7 +92,7 @@ export default function SignupPage() {
         {/* Header */}
         <div className="text-center mb-10">
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Zeon Auto
+            Zeon
           </h1>
           <p className="text-gray-600">Create your account</p>
         </div>

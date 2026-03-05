@@ -1,4 +1,6 @@
 import React from 'react';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts';
+import { Zap, TrendingDown, AlertTriangle, BarChart3 } from 'lucide-react';
 
 interface ChargerStats {
   preparing: number;
@@ -34,254 +36,388 @@ interface AnalyticsDashboardProps {
   analytics: Analytics;
 }
 
-const ChargerCard: React.FC<{ title: string; stats: ChargerStats }> = ({ title, stats }) => (
-  <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200 flex flex-col items-center">
-    <h3 className="text-sm font-bold text-gray-500 uppercase mb-6 tracking-wide">{title}</h3>
-    
-    {/* Preparing Box */}
-    <div className="bg-blue-500 rounded-2xl px-8 py-4 text-center text-white shadow-lg mb-4">
-      <div className="text-xs font-semibold mb-1">Preparing</div>
-      <div className="text-3xl font-bold">{stats.preparing}</div>
-      <div className="text-xs">({stats.preparingPerc}%)</div>
-    </div>
-
-    {/* Arrow Down */}
-    <div className="flex flex-col items-center mb-3">
-      <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-      </svg>
-    </div>
-
-    {/* Charging and Pre-Charging Row */}
-    <div className="flex gap-4 mb-3">
-      <div className="bg-green-500 rounded-2xl px-6 py-3 text-center text-white shadow-lg">
-        <div className="text-xs font-semibold mb-1">Charging</div>
-        <div className="text-2xl font-bold">{stats.charging}</div>
-        <div className="text-xs">({stats.chargingPerc}%)</div>
+// Custom Tooltip for Recharts
+const CustomTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white px-3 py-2 rounded-lg shadow-lg border border-gray-200">
+        <p className="text-sm font-semibold text-gray-900">{payload[0].name}</p>
+        <p className="text-sm text-gray-600">
+          Value: <span className="font-bold text-blue-600">{payload[0].value}</span>
+          {payload[0].payload.percentage && (
+            <span className="ml-1">({payload[0].payload.percentage}%)</span>
+          )}
+        </p>
       </div>
-      <div className="bg-purple-500 rounded-2xl px-6 py-3 text-center text-white shadow-lg">
-        <div className="text-xs font-semibold mb-1">Pre Charging</div>
-        <div className="text-2xl font-bold">{stats.preCharging}</div>
-        <div className="text-xs">({stats.preChargingPerc}%)</div>
-      </div>
-    </div>
+    );
+  }
+  return null;
+};
 
-    {/* Arrows Down (split) */}
-    <div className="flex gap-20 mb-3">
-      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-      </svg>
-      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-      </svg>
-    </div>
-
-    {/* Negative and Positive Stops Row */}
-    <div className="flex gap-4 mb-4">
-      <div className="bg-red-500 rounded-2xl px-6 py-3 text-center text-white shadow-lg">
-        <div className="text-xs font-semibold mb-1">NegativeStops</div>
-        <div className="text-2xl font-bold">{stats.negativeStops}</div>
-        <div className="text-xs">({stats.negativeStopsPerc}%)</div>
-      </div>
-      <div className="bg-teal-500 rounded-2xl px-6 py-3 text-center text-white shadow-lg">
-        <div className="text-xs font-semibold mb-1">Positives</div>
-        <div className="text-2xl font-bold">{stats.positiveStops}</div>
-        <div className="text-xs">({stats.positiveStopsPerc}%)</div>
-      </div>
-    </div>
-
-    {/* Success Rate */}
-    <div className="text-center mt-2">
-      <div className="text-sm font-bold text-red-600">
-        Success Rate: {stats.successRateText}
-      </div>
-    </div>
-  </div>
-);
-
-const DonutChart: React.FC<{ 
-  data: Array<{ label: string; value: number; color: string }>;
-  showPercentages?: boolean;
-}> = ({ data, showPercentages = true }) => {
-  const total = data.reduce((sum, item) => sum + item.value, 0);
+// Tree Section Component (Flow Chart)
+const TreeSection: React.FC<{ preparing: number; charging: number; negative: number; successful: number }> = ({ 
+  preparing, 
+  charging, 
+  negative, 
+  successful 
+}) => {
+  const totalForRate = charging;
+  const rate = totalForRate > 0 ? Math.round((successful / totalForRate) * 100) : 0;
+  const isGood = rate >= 70;
   
-  // Calculate angles for each segment
-  let currentAngle = -90; // Start from top
-  const segments = data.map(item => {
-    const percentage = (item.value / total) * 100;
-    const angle = (item.value / total) * 360;
-    const segment = {
-      ...item,
-      percentage: Math.round(percentage),
-      startAngle: currentAngle,
-      endAngle: currentAngle + angle
-    };
-    currentAngle += angle;
-    return segment;
-  });
-
-  // Create SVG path for donut segment
-  const createArc = (startAngle: number, endAngle: number) => {
-    const start = polarToCartesian(100, 100, 80, endAngle);
-    const end = polarToCartesian(100, 100, 80, startAngle);
-    const largeArcFlag = endAngle - startAngle <= 180 ? '0' : '1';
-    
-    const innerStart = polarToCartesian(100, 100, 50, endAngle);
-    const innerEnd = polarToCartesian(100, 100, 50, startAngle);
-    
-    return [
-      'M', start.x, start.y,
-      'A', 80, 80, 0, largeArcFlag, 0, end.x, end.y,
-      'L', innerEnd.x, innerEnd.y,
-      'A', 50, 50, 0, largeArcFlag, 1, innerStart.x, innerStart.y,
-      'Z'
-    ].join(' ');
-  };
-
-  const polarToCartesian = (centerX: number, centerY: number, radius: number, angleInDegrees: number) => {
-    const angleInRadians = (angleInDegrees * Math.PI) / 180.0;
-    return {
-      x: centerX + (radius * Math.cos(angleInRadians)),
-      y: centerY + (radius * Math.sin(angleInRadians))
-    };
-  };
+  const preCharging = preparing - charging;
+  
+  const preparingPercent = 100;
+  const chargingPercent = preparing > 0 ? Math.round((charging / preparing) * 100) : 0;
+  const preChargingPercent = preparing > 0 ? Math.round((Math.max(preCharging, 0) / preparing) * 100) : 0;
+  const negativePercent = charging > 0 ? Math.round((negative / charging) * 100) : 0;
+  const positivePercent = charging > 0 ? Math.round((successful / charging) * 100) : 0;
 
   return (
-    <div className="flex flex-col items-center gap-6">
-      <div className="relative" style={{ width: '200px', height: '200px' }}>
-        <svg viewBox="0 0 200 200" className="w-full h-full">
-          {segments.map((segment, index) => (
-            <g key={index}>
-              <path
-                d={createArc(segment.startAngle, segment.endAngle)}
-                fill={segment.color}
-                stroke="white"
-                strokeWidth="2"
-              />
-              {showPercentages && (
-                <text
-                  x={polarToCartesian(100, 100, 65, (segment.startAngle + segment.endAngle) / 2).x}
-                  y={polarToCartesian(100, 100, 65, (segment.startAngle + segment.endAngle) / 2).y}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  className="text-sm font-bold fill-white"
-                >
-                  {segment.percentage}%
-                </text>
-              )}
-            </g>
-          ))}
+    <div className="flex flex-col h-full justify-evenly py-1">
+      {/* Level 1: Preparing */}
+      <div className="flex justify-center mb-1">
+        <div className="bg-blue-500 text-white rounded-xl px-4 py-1.5 text-center shadow-md min-w-[100px]">
+          <div className="text-[10px] font-semibold">Preparing</div>
+          <div className="text-base font-bold">{preparing}</div>
+          <div className="text-xs font-medium">({preparingPercent}%)</div>
+        </div>
+      </div>
+
+      {/* Lines connecting */}
+      <div className="flex justify-center mb-0.5">
+        <svg width="140" height="18" className="overflow-visible">
+          <line x1="70" y1="0" x2="35" y2="18" stroke="#9CA3AF" strokeWidth="1.5"/>
+          <line x1="70" y1="0" x2="105" y2="18" stroke="#9CA3AF" strokeWidth="1.5"/>
         </svg>
       </div>
-      <div className="flex flex-wrap justify-center gap-4">
-        {data.map((item, index) => (
-          <div key={index} className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded" style={{ backgroundColor: item.color }}></div>
-            <span className="text-sm font-medium text-gray-700">{item.label}</span>
-          </div>
-        ))}
+
+      {/* Level 2: Charging & Pre-Charging */}
+      <div className="flex justify-center gap-4 mb-1">
+        <div className="bg-green-500 text-white rounded-lg px-3 py-1 text-center shadow-sm min-w-[85px]">
+          <div className="text-[9px] font-semibold">Charging</div>
+          <div className="text-sm font-bold">{charging}</div>
+          <div className="text-[10px] font-medium">({chargingPercent}%)</div>
+        </div>
+        <div className="bg-purple-500 text-white rounded-lg px-3 py-1 text-center shadow-sm min-w-[85px]">
+          <div className="text-[9px] font-semibold">Pre Charging</div>
+          <div className="text-sm font-bold">{preCharging >= 0 ? preCharging : 0}</div>
+          <div className="text-[10px] font-medium">({preChargingPercent}%)</div>
+        </div>
+      </div>
+
+      {/* Lines connecting from Charging */}
+      <div className="flex justify-start ml-[20%] mb-0.5">
+        <svg width="80" height="15" className="overflow-visible">
+          <line x1="40" y1="0" x2="15" y2="15" stroke="#9CA3AF" strokeWidth="1.5"/>
+          <line x1="40" y1="0" x2="65" y2="15" stroke="#9CA3AF" strokeWidth="1.5"/>
+        </svg>
+      </div>
+
+      {/* Level 3: Negative Stops & Positives */}
+      <div className="flex justify-start ml-[8%] gap-3 mb-1">
+        <div className="bg-red-500 text-white rounded-md px-3 py-1 text-center shadow-sm min-w-[75px]">
+          <div className="text-[8px] font-semibold">NegativeStops</div>
+          <div className="text-xs font-bold">{negative}</div>
+          <div className="text-[9px] font-medium">({negativePercent}%)</div>
+        </div>
+        <div className="bg-teal-500 text-white rounded-md px-3 py-1 text-center shadow-sm min-w-[75px]">
+          <div className="text-[8px] font-semibold">Positives</div>
+          <div className="text-xs font-bold">{successful}</div>
+          <div className="text-[9px] font-medium">({positivePercent}%)</div>
+        </div>
+      </div>
+
+      {/* Success Rate */}
+      <div className={`text-[10px] font-bold text-center mt-1 ${isGood ? 'text-green-600' : 'text-red-600'}`}>
+        Success Rate: {rate}% ({successful} / {totalForRate})
       </div>
     </div>
   );
 };
 
+// Dashboard Card Component
+const DashboardCard: React.FC<{ 
+  title: string; 
+  icon?: any; 
+  borderColorClass?: string; 
+  children: React.ReactNode 
+}> = ({ title, icon: Icon, borderColorClass = "border-blue-500", children }) => (
+  <div className={`bg-white rounded-2xl shadow-lg flex flex-col overflow-hidden border-t-4 ${borderColorClass} hover:shadow-xl transition-all duration-300 h-full`}>
+    <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white flex-none">
+      <div className="flex items-center gap-2">
+        {Icon && <Icon className="w-4 h-4 text-gray-600" />}
+        <h3 className="text-sm font-bold text-gray-800 truncate">{title}</h3>
+      </div>
+    </div>
+    <div className="p-2 flex-1 min-h-0 relative">
+      {children}
+    </div>
+  </div>
+);
+
 export default function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
+  // Prepare data for charts
+  const PIE_COLORS = ['#3B82F6', '#10B981', '#F59E0B'];
+  const ERROR_COLORS = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#6366F1'];
+
+  // Charging Shares Pie Data
+  const chargingSharesData = [
+    { name: 'Negative Stops', value: analytics.chargingShares.negativeStops, percentage: 0 },
+    { name: 'Positive Stops', value: analytics.chargingShares.positiveStops, percentage: 0 },
+    { name: 'Pre-Charging Failure', value: analytics.chargingShares.preChargingFailure, percentage: 0 }
+  ];
+  const chargingTotal = chargingSharesData.reduce((acc, curr) => acc + curr.value, 0);
+  chargingSharesData.forEach(d => {
+    d.percentage = chargingTotal > 0 ? Math.round((d.value / chargingTotal) * 100) : 0;
+  });
+
+  // Error Summary Pie Data
+  const errorSummaryData = analytics.errorSummary.map((err, idx) => ({
+    name: err.error,
+    value: err.count,
+    percentage: err.percentage
+  }));
+
+  // OEM Bar Chart Data
+  const oemBarData = analytics.oemAnalytics.map(oem => ({
+    name: oem.oem,
+    value: oem.negativeStopPercentage
+  }));
+
+  // Custom label for percentage display on bars
+  const renderCustomLabel = (props: any) => {
+    const { x, y, width, value } = props;
+    return (
+      <text 
+        x={x + width / 2} 
+        y={y - 5} 
+        fill="#1F2937" 
+        textAnchor="middle" 
+        fontSize="12" 
+        fontWeight="bold"
+      >
+        {value}%
+      </text>
+    );
+  };
+
+  // Custom label for pie chart percentage
+  const renderPieLabel = (props: any) => {
+    const { cx, cy, midAngle, innerRadius, outerRadius, percentage } = props;
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    
+    return (
+      <text 
+        x={x} 
+        y={y} 
+        fill="white" 
+        textAnchor={x > cx ? 'start' : 'end'} 
+        dominantBaseline="central"
+        fontSize="12"
+        fontWeight="bold"
+      >
+        {`${percentage}%`}
+      </text>
+    );
+  };
+
   return (
-    <div className="space-y-6 p-6 bg-gray-50 min-h-screen">
-      {/* Top Row: Charger Usage & Charging Shares */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Charger Usage & Readiness - Takes 2 columns */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-lg p-6 border-2 border-blue-300">
-          <div className="flex items-center gap-3 mb-6">
-            <svg className="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            <h2 className="text-2xl font-bold text-gray-900">Charger Usage & Readiness</h2>
+    <div className="bg-white min-h-screen">
+      {/* Top Navigation Bar */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="w-6 h-6 text-blue-600" />
+            <h1 className="text-xl font-bold text-gray-900">Analytics Dashboard</h1>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <ChargerCard title="COMBINED CHARGER" stats={analytics.chargerUsage.combined} />
-            <ChargerCard title="CONNECTOR 1" stats={analytics.chargerUsage.connector1} />
-            <ChargerCard title="CONNECTOR 2" stats={analytics.chargerUsage.connector2} />
+          <div className="flex items-center gap-2 ml-8">
+            <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+              AC
+            </button>
+            <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
+              Combined
+            </button>
+            <button className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
+              DC
+            </button>
           </div>
         </div>
-
-        {/* Charging Shares - Takes 1 column */}
-        <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-red-300">
-          <div className="flex items-center gap-3 mb-6">
-            <svg className="w-7 h-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+        <div className="flex items-center gap-4">
+          <select className="px-4 py-2 text-sm border border-gray-300 rounded-lg bg-white">
+            <option>All Files</option>
+          </select>
+          <button className="p-2 text-gray-600 hover:text-gray-900">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            <h2 className="text-xl font-bold text-gray-900">Charging Shares</h2>
-          </div>
-          <div className="flex justify-center items-center h-full">
-            <DonutChart
-              data={[
-                { label: 'Negative Stops', value: analytics.chargingShares.negativeStops, color: '#f59e0b' },
-                { label: 'Positive Stops', value: analytics.chargingShares.positiveStops, color: '#10b981' },
-                { label: 'Pre-Charging Failure', value: analytics.chargingShares.preChargingFailure, color: '#ef4444' }
-              ]}
-            />
-          </div>
+          </button>
+          <button className="p-2 text-gray-600 hover:text-gray-900">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          </button>
+          <button className="p-2 text-gray-600 hover:text-gray-900">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       </div>
 
-      {/* Bottom Row: Negative Stops by OEM & Error Summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Negative Stops by OEM - Takes 2 columns */}
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-lg p-6 border border-gray-200">
-          <div className="flex items-center gap-3 mb-6">
-            <svg className="w-6 h-6 text-orange-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
-            <h2 className="text-xl font-bold text-gray-900">1. Negative Stops by OEM (Neg Stop%)</h2>
-          </div>
-          <div className="space-y-6">
-            {analytics.oemAnalytics.map((oem, index) => (
-              <div key={index}>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-base font-bold text-gray-900">{oem.oem}</span>
-                  <span className="text-base font-bold text-gray-900">{oem.negativeStopPercentage}%</span>
+      <div className="space-y-6 p-6 bg-gray-50">
+        {/* Top Row: Charger Usage & Charging Shares */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Charger Usage & Readiness - Takes 2 columns */}
+          <div className="lg:col-span-2">
+            <DashboardCard title="Charger Usage & Readiness" icon={Zap} borderColorClass="border-blue-500">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full">
+                {/* Combined Charger */}
+                <div className="bg-white rounded-lg border border-gray-200 p-3">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 text-center tracking-wide">Combined Charger</h4>
+                  <TreeSection
+                    preparing={analytics.chargerUsage.combined.preparing}
+                    charging={analytics.chargerUsage.combined.charging}
+                    negative={analytics.chargerUsage.combined.negativeStops}
+                    successful={analytics.chargerUsage.combined.positiveStops}
+                  />
                 </div>
-                <div className="relative w-full bg-gray-200 rounded-lg h-16 shadow-inner">
-                  <div
-                    className="absolute top-0 left-0 h-full rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-md transition-all duration-500"
-                    style={{ 
-                      width: `${oem.negativeStopPercentage}%`,
-                      background: 'linear-gradient(90deg, #c2410c 0%, #ea580c 100%)'
-                    }}
-                  >
-                    {oem.negativeStopPercentage}%
-                  </div>
+                {/* Connector 1 */}
+                <div className="bg-white rounded-lg border border-gray-200 p-3">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 text-center tracking-wide">Connector 1</h4>
+                  <TreeSection
+                    preparing={analytics.chargerUsage.connector1.preparing}
+                    charging={analytics.chargerUsage.connector1.charging}
+                    negative={analytics.chargerUsage.connector1.negativeStops}
+                    successful={analytics.chargerUsage.connector1.positiveStops}
+                  />
+                </div>
+                {/* Connector 2 */}
+                <div className="bg-white rounded-lg border border-gray-200 p-3">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 text-center tracking-wide">Connector 2</h4>
+                  <TreeSection
+                    preparing={analytics.chargerUsage.connector2.preparing}
+                    charging={analytics.chargerUsage.connector2.charging}
+                    negative={analytics.chargerUsage.connector2.negativeStops}
+                    successful={analytics.chargerUsage.connector2.positiveStops}
+                  />
                 </div>
               </div>
-            ))}
+            </DashboardCard>
+          </div>
+
+          {/* Charging Shares - Takes 1 column */}
+          <div>
+            <DashboardCard title="Charging Shares" icon={TrendingDown} borderColorClass="border-red-500">
+              <div className="h-full flex flex-col items-center justify-center">
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={chargingSharesData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={70}
+                      paddingAngle={5}
+                      dataKey="value"
+                      label={renderPieLabel}
+                    >
+                      {chargingSharesData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap justify-center gap-3 mt-2">
+                  {chargingSharesData.map((item, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}></div>
+                      <span className="text-xs font-medium text-gray-700">{item.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </DashboardCard>
           </div>
         </div>
 
-        {/* Error Summary - Takes 1 column */}
-        <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-orange-300">
-          <div className="flex items-center gap-3 mb-6">
-            <svg className="w-7 h-7 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <h2 className="text-xl font-bold text-gray-900">Error Summary</h2>
+        {/* Bottom Row: Negative Stops by OEM & Error Summary */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Negative Stops by OEM - Takes 2 columns */}
+          <div className="lg:col-span-2">
+            <DashboardCard title="Negative Stops by OEM (Neg Stop%)" icon={BarChart3} borderColorClass="border-orange-600">
+              <div className="h-full">
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart 
+                    data={oemBarData}
+                    margin={{ top: 30, right: 20, left: 20, bottom: 60 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis 
+                      dataKey="name" 
+                      angle={-45} 
+                      textAnchor="end" 
+                      height={80}
+                      interval={0}
+                      style={{ fontSize: '10px' }}
+                    />
+                    <YAxis hide />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar dataKey="value" fill="#C2410C">
+                      <LabelList content={renderCustomLabel} />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </DashboardCard>
           </div>
-          {analytics.errorSummary.length > 0 ? (
-            <div className="flex justify-center items-center h-full">
-              <DonutChart
-                data={analytics.errorSummary.slice(0, 5).map((err, idx) => ({
-                  label: err.error,
-                  value: err.percentage,
-                  color: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'][idx % 5]
-                }))}
-              />
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-64 text-center text-gray-400 text-lg">
-              No errors found
-            </div>
-          )}
+
+          {/* Error Summary - Takes 1 column */}
+          <div>
+            <DashboardCard title="Error Summary" icon={AlertTriangle} borderColorClass="border-orange-500">
+              {errorSummaryData.length > 0 ? (
+                <div className="h-full flex flex-col items-center justify-center">
+                  <ResponsiveContainer width="100%" height={250}>
+                    <PieChart>
+                      <Pie
+                        data={errorSummaryData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={40}
+                        outerRadius={70}
+                        paddingAngle={5}
+                        dataKey="value"
+                        label={renderPieLabel}
+                      >
+                        {errorSummaryData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={ERROR_COLORS[index % ERROR_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip content={<CustomTooltip />} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap justify-center gap-2 mt-2 px-2">
+                    {errorSummaryData.map((item, index) => (
+                      <div key={index} className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded" style={{ backgroundColor: ERROR_COLORS[index % ERROR_COLORS.length] }}></div>
+                        <span className="text-xs font-medium text-gray-700 truncate max-w-[120px]" title={item.name}>
+                          {item.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-64 text-center text-gray-400 text-lg">
+                  No errors found
+                </div>
+              )}
+            </DashboardCard>
+          </div>
         </div>
       </div>
     </div>

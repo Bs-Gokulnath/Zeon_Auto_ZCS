@@ -1,6 +1,32 @@
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from "next/link";
 
 export default function Home() {
+  const router = useRouter();
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const loginDate = localStorage.getItem('loginDate');
+    
+    if (token) {
+      // Check if it's a new day
+      const currentDate = new Date().toDateString();
+      if (loginDate && loginDate !== currentDate) {
+        // New day detected, clear session
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('loginDate');
+      } else {
+        // Same day, redirect to dashboard
+        router.push('/dashboard');
+      }
+    }
+  }, [router]);
+
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}

@@ -1,10 +1,10 @@
 const SessionData = require('../models/SessionData');
 
-// Helper function to format Date to DD/MM/YYYY
+// Helper function to format Date to YYYY-MM-DD for session_start_time/session_end_time matching
 const formatToDbDate = (year, month, day) => {
   const dayStr = String(day).padStart(2, '0');
   const monthStr = String(month).padStart(2, '0');
-  return `${dayStr}/${monthStr}/${year}`;
+  return `${year}-${monthStr}-${dayStr}`;
 };
 
 exports.getAnalyticsByDateRange = async (req, res) => {
@@ -44,12 +44,16 @@ exports.getAnalyticsByDateRange = async (req, res) => {
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
+    // Build query with regex patterns for each date
+    const orConditions = [];
+    dateStrings.forEach(dateStr => {
+      orConditions.push({ session_end_time: { $regex: `^${dateStr}` } });
+      orConditions.push({ session_start_time: { $regex: `^${dateStr}` } });
+    });
+
     // Fetch session data
     const sessionData = await SessionData.find({
-      $or: [
-        { end_date: { $in: dateStrings } },
-        { start_date: { $in: dateStrings } }
-      ]
+      $or: orConditions
     });
 
     if (sessionData.length === 0) {

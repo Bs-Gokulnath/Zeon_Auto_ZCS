@@ -67,8 +67,20 @@ export default function DashboardPage() {
     // Check if user is authenticated
     const token = localStorage.getItem('token');
     const userStr = localStorage.getItem('user');
+    const loginDate = localStorage.getItem('loginDate');
 
     if (!token || !userStr) {
+      router.push('/login');
+      return;
+    }
+
+    // Check if it's a new day - if yes, auto logout
+    const currentDate = new Date().toDateString();
+    if (loginDate && loginDate !== currentDate) {
+      // New day detected, logout user
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('loginDate');
       router.push('/login');
       return;
     }
@@ -80,6 +92,7 @@ export default function DashboardPage() {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('loginDate');
     router.push('/login');
   };
 
@@ -294,15 +307,17 @@ export default function DashboardPage() {
       </nav>
 
       {/* Main Content */}
-      <main className="w-full">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <button
-            onClick={() => setShowModal(true)}
-            className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold shadow-md"
-          >
-            Select Date Range
-          </button>
-        </div>
+      <main className="w-full bg-gray-50 min-h-screen">
+        {!analytics && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <button
+              onClick={() => setShowModal(true)}
+              className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold shadow-md"
+            >
+              Select Date Range
+            </button>
+          </div>
+        )}
 
         {/* Data Display Section */}
         {fetchingData && (
@@ -314,10 +329,10 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {!fetchingData && dataMessage && (
+        {!fetchingData && dataMessage && !analytics && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
-            <div className={`p-4 rounded-lg ${!analytics ? 'bg-yellow-50 border border-yellow-200' : 'bg-emerald-50 border border-emerald-200'}`}>
-              <p className={`${!analytics ? 'text-yellow-800' : 'text-emerald-800'} font-medium`}>
+            <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-200">
+              <p className="text-yellow-800 font-medium">
                 {dataMessage}
               </p>
               {selectedDateRange && (

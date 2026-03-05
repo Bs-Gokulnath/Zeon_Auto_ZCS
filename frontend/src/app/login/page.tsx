@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
@@ -11,6 +11,26 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const loginDate = localStorage.getItem('loginDate');
+    
+    if (token) {
+      // Check if it's a new day
+      const currentDate = new Date().toDateString();
+      if (loginDate && loginDate !== currentDate) {
+        // New day detected, clear session
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('loginDate');
+      } else {
+        // Same day, redirect to dashboard
+        router.push('/dashboard');
+      }
+    }
+  }, [router]);
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,6 +85,8 @@ export default function LoginPage() {
 
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
+      // Store login date for daily logout
+      localStorage.setItem('loginDate', new Date().toDateString());
 
       setSuccess('Login successful! Redirecting...');
       

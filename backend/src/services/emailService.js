@@ -20,7 +20,7 @@ const sendOTPEmail = async (email, otp) => {
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-            <h1 style="color: white; margin: 0;">Zeon Auto</h1>
+            <h1 style="color: white; margin: 0;">Zeon</h1>
           </div>
           <div style="background: #ffffff; padding: 40px; border: 1px solid #e0e0e0; border-top: none; border-radius: 0 0 10px 10px;">
             <h2 style="color: #333; margin-top: 0;">Your OTP Code</h2>

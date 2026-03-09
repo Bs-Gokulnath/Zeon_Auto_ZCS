@@ -1,42 +1,61 @@
-import React from 'react';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts';
-import { Zap, TrendingDown, AlertTriangle, BarChart3 } from 'lucide-react';
+import React, { useState } from 'react';
+import {
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList,
+  LineChart, Line, Legend
+} from 'recharts';
+import { Zap, TrendingDown, AlertTriangle, BarChart3, Layers, Activity, Users, Settings, X } from 'lucide-react';
 
-interface ChargerStats {
-  preparing: number;
-  preparingPerc: number;
-  charging: number;
-  chargingPerc: number;
-  preCharging: number;
-  preChargingPerc: number;
-  negativeStops: number;
-  negativeStopsPerc: number;
-  positiveStops: number;
-  positiveStopsPerc: number;
-  successRate: number;
-  successRateText: string;
+export interface ConnectorMetrics {
+  totalSessions: number;
+  positiveSessions: number;
+  negativeSessions: number;
+  prechargingFailures: number;
+  networkPerformance: number;
+  totalEnergy: number;
+  avgSessionDuration: number;
+  peakPower: number;
 }
 
-interface Analytics {
-  chargerUsage: {
-    combined: ChargerStats;
-    connector1: ChargerStats;
-    connector2: ChargerStats;
+export interface Analytics {
+  filterOptions: {
+    oems: string[];
+    stations: string[];
+    cpids: string[];
   };
-  chargingShares: {
-    negativeStops: number;
-    positiveStops: number;
-    preChargingFailure: number;
+  metrics: {
+    combined:   ConnectorMetrics;
+    connector0: ConnectorMetrics;
+    connector1: ConnectorMetrics;
+    connector2: ConnectorMetrics;
+    connector3: ConnectorMetrics;
+    connector4: ConnectorMetrics;
+    connector5: ConnectorMetrics;
+    connector6: ConnectorMetrics;
   };
-  oemAnalytics: Array<{ oem: string; negativeStopPercentage: number }>;
-  errorSummary: Array<{ error: string; count: number; percentage: number }>;
+  sessionTrend: Array<{ date: string; peakPower: number; avgPower: number; totalSessions: number }>;
+  networkPerformance: {
+    byOEM:     Array<{ oem: string; negativeStopPercentage: number; totalSessions: number }>;
+    byStation: Array<{ station: string; negativeStopPercentage: number; negativeStops: number; totalSessions: number }>;
+  };
+  prechargingFailures: {
+    byOEM:     Array<{ oem: string; count: number }>;
+    byStation: Array<{ station: string; count: number }>;
+  };
+  errorBreakdown: Array<{ errorCode: string; count: number; percentage: number }>;
+  authMethods:    Array<{ method: string; value: number }>;
+  chargingShare:  Array<{ oem: string; value: number; percentage: number }>;
+  cpidAnalytics?: Array<{ cpid: string; negativeStopPercentage: number; negativeStops: number; totalSessions: number }>;
 }
 
-interface AnalyticsDashboardProps {
+interface Props {
   analytics: Analytics;
+  connectorType: string;
+  onConnectorTypeChange: (type: string) => void;
 }
 
-// Custom Tooltip for Recharts
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
 const CustomTooltip = ({ active, payload }: any) => {
   if (active && payload && payload.length) {
     return (
@@ -44,7 +63,7 @@ const CustomTooltip = ({ active, payload }: any) => {
         <p className="text-sm font-semibold text-gray-900">{payload[0].name}</p>
         <p className="text-sm text-gray-600">
           Value: <span className="font-bold text-blue-600">{payload[0].value}</span>
-          {payload[0].payload.percentage && (
+          {payload[0].payload.percentage != null && (
             <span className="ml-1">({payload[0].payload.percentage}%)</span>
           )}
         </p>
@@ -54,289 +73,245 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-// Tree Section Component (Flow Chart)
-const TreeSection: React.FC<{ preparing: number; charging: number; negative: number; successful: number }> = ({ 
-  preparing, 
-  charging, 
-  negative, 
-  successful 
-}) => {
-  const totalForRate = charging;
-  const rate = totalForRate > 0 ? Math.round((successful / totalForRate) * 100) : 0;
+const TreeSection: React.FC<{ data: ConnectorMetrics }> = ({ data }) => {
+  const chargingSessions = data.totalSessions - data.prechargingFailures;
+  const rate = chargingSessions > 0
+    ? Math.round((data.positiveSessions / chargingSessions) * 100)
+    : 0;
   const isGood = rate >= 70;
-  
-  const preCharging = preparing - charging;
-  
-  const preparingPercent = 100;
-  const chargingPercent = preparing > 0 ? Math.round((charging / preparing) * 100) : 0;
-  const preChargingPercent = preparing > 0 ? Math.round((Math.max(preCharging, 0) / preparing) * 100) : 0;
-  const negativePercent = charging > 0 ? Math.round((negative / charging) * 100) : 0;
-  const positivePercent = charging > 0 ? Math.round((successful / charging) * 100) : 0;
+
+  const chargingPct    = data.totalSessions > 0 ? Math.round((chargingSessions / data.totalSessions) * 100) : 0;
+  const prePct         = data.totalSessions > 0 ? Math.round((data.prechargingFailures / data.totalSessions) * 100) : 0;
+  const negativePct    = chargingSessions > 0 ? Math.round((data.negativeSessions / chargingSessions) * 100) : 0;
+  const positivePct    = chargingSessions > 0 ? Math.round((data.positiveSessions / chargingSessions) * 100) : 0;
 
   return (
-    <div className="flex flex-col h-full justify-evenly py-1">
-      {/* Level 1: Preparing */}
-      <div className="flex justify-center mb-1">
-        <div className="bg-blue-500 text-white rounded-xl px-4 py-1.5 text-center shadow-md min-w-[100px]">
-          <div className="text-[10px] font-semibold">Preparing</div>
-          <div className="text-base font-bold">{preparing}</div>
-          <div className="text-xs font-medium">({preparingPercent}%)</div>
+    <div className="flex flex-col h-full justify-evenly py-4">
+      <div className="flex justify-center mb-3">
+        <div className="bg-blue-500 text-white rounded-xl px-4 py-2 text-center shadow-md min-w-[110px]">
+          <div className="text-xs font-semibold">Total Sessions</div>
+          <div className="text-lg font-bold">{data.totalSessions}</div>
+          <div className="text-xs font-medium">(100%)</div>
         </div>
       </div>
 
-      {/* Lines connecting */}
-      <div className="flex justify-center mb-0.5">
-        <svg width="140" height="18" className="overflow-visible">
-          <line x1="70" y1="0" x2="35" y2="18" stroke="#9CA3AF" strokeWidth="1.5"/>
-          <line x1="70" y1="0" x2="105" y2="18" stroke="#9CA3AF" strokeWidth="1.5"/>
+      <div className="flex justify-center mb-2">
+        <svg width="140" height="24" className="overflow-visible">
+          <line x1="70" y1="0" x2="35" y2="24" stroke="#9CA3AF" strokeWidth="1.5"/>
+          <line x1="70" y1="0" x2="105" y2="24" stroke="#9CA3AF" strokeWidth="1.5"/>
         </svg>
       </div>
 
-      {/* Level 2: Charging & Pre-Charging */}
-      <div className="flex justify-center gap-4 mb-1">
-        <div className="bg-green-500 text-white rounded-lg px-3 py-1 text-center shadow-sm min-w-[85px]">
-          <div className="text-[9px] font-semibold">Charging</div>
-          <div className="text-sm font-bold">{charging}</div>
-          <div className="text-[10px] font-medium">({chargingPercent}%)</div>
+      <div className="flex justify-center gap-4 mb-3">
+        <div className="bg-green-500 text-white rounded-lg px-3 py-2 text-center shadow-sm min-w-[95px]">
+          <div className="text-xs font-semibold">Charging</div>
+          <div className="text-base font-bold">{chargingSessions}</div>
+          <div className="text-xs font-medium">({chargingPct}%)</div>
         </div>
-        <div className="bg-purple-500 text-white rounded-lg px-3 py-1 text-center shadow-sm min-w-[85px]">
-          <div className="text-[9px] font-semibold">Pre Charging</div>
-          <div className="text-sm font-bold">{preCharging >= 0 ? preCharging : 0}</div>
-          <div className="text-[10px] font-medium">({preChargingPercent}%)</div>
+        <div className="bg-purple-500 text-white rounded-lg px-3 py-2 text-center shadow-sm min-w-[95px]">
+          <div className="text-xs font-semibold">Pre Charging</div>
+          <div className="text-base font-bold">{data.prechargingFailures}</div>
+          <div className="text-xs font-medium">({prePct}%)</div>
         </div>
       </div>
 
-      {/* Lines connecting from Charging */}
-      <div className="flex justify-start ml-[20%] mb-0.5">
-        <svg width="80" height="15" className="overflow-visible">
-          <line x1="40" y1="0" x2="15" y2="15" stroke="#9CA3AF" strokeWidth="1.5"/>
-          <line x1="40" y1="0" x2="65" y2="15" stroke="#9CA3AF" strokeWidth="1.5"/>
+      <div className="flex justify-start ml-[20%] mb-2">
+        <svg width="80" height="20" className="overflow-visible">
+          <line x1="40" y1="0" x2="15" y2="20" stroke="#9CA3AF" strokeWidth="1.5"/>
+          <line x1="40" y1="0" x2="65" y2="20" stroke="#9CA3AF" strokeWidth="1.5"/>
         </svg>
       </div>
 
-      {/* Level 3: Negative Stops & Positives */}
-      <div className="flex justify-start ml-[8%] gap-3 mb-1">
-        <div className="bg-red-500 text-white rounded-md px-3 py-1 text-center shadow-sm min-w-[75px]">
-          <div className="text-[8px] font-semibold">NegativeStops</div>
-          <div className="text-xs font-bold">{negative}</div>
-          <div className="text-[9px] font-medium">({negativePercent}%)</div>
+      <div className="flex justify-start ml-[8%] gap-3 mb-3">
+        <div className="bg-red-500 text-white rounded-md px-3 py-2 text-center shadow-sm min-w-[80px]">
+          <div className="text-xs font-semibold">Negative Stops</div>
+          <div className="text-sm font-bold">{data.negativeSessions}</div>
+          <div className="text-xs font-medium">({negativePct}%)</div>
         </div>
-        <div className="bg-teal-500 text-white rounded-md px-3 py-1 text-center shadow-sm min-w-[75px]">
-          <div className="text-[8px] font-semibold">Positives</div>
-          <div className="text-xs font-bold">{successful}</div>
-          <div className="text-[9px] font-medium">({positivePercent}%)</div>
+        <div className="bg-teal-500 text-white rounded-md px-3 py-2 text-center shadow-sm min-w-[80px]">
+          <div className="text-xs font-semibold">Positives</div>
+          <div className="text-sm font-bold">{data.positiveSessions}</div>
+          <div className="text-xs font-medium">({positivePct}%)</div>
         </div>
       </div>
 
-      {/* Success Rate */}
-      <div className={`text-[10px] font-bold text-center mt-1 ${isGood ? 'text-green-600' : 'text-red-600'}`}>
-        Success Rate: {rate}% ({successful} / {totalForRate})
+      <div className={`text-xs font-bold text-center mt-2 ${isGood ? 'text-green-600' : 'text-red-600'}`}>
+        Success Rate: {rate}% ({data.positiveSessions} / {chargingSessions})
       </div>
     </div>
   );
 };
 
-// Dashboard Card Component
-const DashboardCard: React.FC<{ 
-  title: string; 
-  icon?: any; 
-  borderColorClass?: string; 
-  children: React.ReactNode 
-}> = ({ title, icon: Icon, borderColorClass = "border-blue-500", children }) => (
-  <div className={`bg-white rounded-2xl shadow-lg flex flex-col overflow-hidden border-t-4 ${borderColorClass} hover:shadow-xl transition-all duration-300 h-full`}>
-    <div className="px-3 py-2 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white flex-none">
-      <div className="flex items-center gap-2">
-        {Icon && <Icon className="w-4 h-4 text-gray-600" />}
-        <h3 className="text-sm font-bold text-gray-800 truncate">{title}</h3>
-      </div>
+const DashboardCard: React.FC<{
+  title: string;
+  icon?: any;
+  borderColorClass?: string;
+  children: React.ReactNode;
+}> = ({ title, icon: Icon, borderColorClass = 'border-blue-500', children }) => (
+  <div className={`bg-white rounded-xl shadow-md flex flex-col overflow-hidden border-t-4 ${borderColorClass} hover:shadow-lg transition-all duration-300 h-full`}>
+    <div className="px-3 py-2.5 border-b border-gray-100 flex items-center gap-2 bg-gradient-to-r from-gray-50 to-white flex-none">
+      {Icon && <Icon className="w-4 h-4 text-gray-600" />}
+      <h3 className="text-sm font-bold text-gray-800 truncate">{title}</h3>
     </div>
-    <div className="p-2 flex-1 min-h-0 relative">
-      {children}
-    </div>
+    <div className="p-3 flex-1 min-h-0 relative">{children}</div>
   </div>
 );
 
-export default function AnalyticsDashboard({ analytics }: AnalyticsDashboardProps) {
-  // Prepare data for charts
-  const PIE_COLORS = ['#3B82F6', '#10B981', '#F59E0B'];
+
+const renderPieLabel = (props: any) => {
+  const { cx, cy, midAngle, innerRadius, outerRadius, percentage } = props;
+  const RADIAN = Math.PI / 180;
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  return (
+    <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'}
+      dominantBaseline="central" fontSize="12" fontWeight="bold">
+      {`${percentage}%`}
+    </text>
+  );
+};
+
+// ─── Scrollable Bar Chart wrapper ─────────────────────────────────────────────
+
+const ScrollableBar: React.FC<{
+  data: any[];
+  fill: string;
+  labelType?: 'percent' | 'count';
+  cursorFill?: string;
+}> = ({ data, fill, labelType = 'percent', cursorFill = '#FEE2E2' }) => {
+  const minWidth = data.length > 10 ? `${data.length * 90}px` : '100%';
+  return (
+    <div className={data.length > 10 ? 'overflow-x-auto h-full' : 'h-full'}>
+      <div style={{ minWidth, height: '100%' }}>
+        <ResponsiveContainer width="100%" height={380}>
+          <BarChart data={data} margin={{ top: 30, right: 20, left: 20, bottom: 90 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+            <XAxis dataKey="name" tick={{ fontSize: 9, fontWeight: 'bold' }}
+              axisLine={false} tickLine={false} dy={10} interval={0} angle={-45} textAnchor="end" />
+            <YAxis hide />
+            <Tooltip cursor={{ fill: cursorFill, stroke: 'none' }} content={<CustomTooltip />} />
+            <Bar dataKey="value" fill={fill} radius={[6, 6, 0, 0]}>
+              <LabelList
+                dataKey="value"
+                position="top"
+                fill="#000"
+                fontSize={10}
+                fontWeight="bold"
+                formatter={labelType === 'percent' ? (v: any) => `${v}%` : undefined}
+              />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
+// ─── Main component ───────────────────────────────────────────────────────────
+
+export default function AnalyticsDashboard({ analytics, connectorType, onConnectorTypeChange }: Props) {
+  const [showConnectorModal, setShowConnectorModal] = useState(false);
+  const [selectedConnectors, setSelectedConnectors] = useState<number[]>([0, 1, 2, 3]);
+  
+  const PIE_COLORS   = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
   const ERROR_COLORS = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#6366F1'];
+  const COLORS = { blue: '#3B82F6', green: '#10B981', orange: '#F59E0B', red: '#EF4444', purple: '#8B5CF6' };
 
-  // Charging Shares Pie Data
-  const chargingSharesData = [
-    { name: 'Negative Stops', value: analytics.chargingShares.negativeStops, percentage: 0 },
-    { name: 'Positive Stops', value: analytics.chargingShares.positiveStops, percentage: 0 },
-    { name: 'Pre-Charging Failure', value: analytics.chargingShares.preChargingFailure, percentage: 0 }
-  ];
-  const chargingTotal = chargingSharesData.reduce((acc, curr) => acc + curr.value, 0);
-  chargingSharesData.forEach(d => {
-    d.percentage = chargingTotal > 0 ? Math.round((d.value / chargingTotal) * 100) : 0;
-  });
+  const { metrics, networkPerformance, prechargingFailures, errorBreakdown,
+          authMethods, chargingShare, sessionTrend, cpidAnalytics } = analytics;
 
-  // Error Summary Pie Data
-  const errorSummaryData = analytics.errorSummary.map((err, idx) => ({
-    name: err.error,
-    value: err.count,
-    percentage: err.percentage
-  }));
+  // Metrics summary cards
+  const combined = metrics.combined;
 
-  // OEM Bar Chart Data
-  const oemBarData = analytics.oemAnalytics.map(oem => ({
-    name: oem.oem,
-    value: oem.negativeStopPercentage
-  }));
-
-  // Custom label for percentage display on bars
-  const renderCustomLabel = (props: any) => {
-    const { x, y, width, value } = props;
-    return (
-      <text 
-        x={x + width / 2} 
-        y={y - 5} 
-        fill="#1F2937" 
-        textAnchor="middle" 
-        fontSize="12" 
-        fontWeight="bold"
-      >
-        {value}%
-      </text>
+  // Toggle connector selection
+  const toggleConnector = (num: number) => {
+    setSelectedConnectors(prev =>
+      prev.includes(num) ? prev.filter(n => n !== num) : [...prev, num].sort()
     );
   };
 
-  // Custom label for pie chart percentage
-  const renderPieLabel = (props: any) => {
-    const { cx, cy, midAngle, innerRadius, outerRadius, percentage } = props;
-    const RADIAN = Math.PI / 180;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-    
-    return (
-      <text 
-        x={x} 
-        y={y} 
-        fill="white" 
-        textAnchor={x > cx ? 'start' : 'end'} 
-        dominantBaseline="central"
-        fontSize="12"
-        fontWeight="bold"
-      >
-        {`${percentage}%`}
-      </text>
-    );
-  };
+  // Charts data
+  const errorData    = errorBreakdown.map(e => ({ name: e.errorCode, value: e.count, percentage: e.percentage }));
+  const oemNetData   = networkPerformance.byOEM.map(d => ({ name: d.oem,     value: d.negativeStopPercentage }));
+  const stationData  = networkPerformance.byStation.map(d => ({ name: d.station, value: d.negativeStopPercentage }));
+  const cpidData     = (cpidAnalytics || []).map(d => ({ name: d.cpid,    value: d.negativeStopPercentage }));
+  const preOEMData   = prechargingFailures.byOEM.map(d => ({ name: d.oem,     value: d.count }));
+  const preStatData  = prechargingFailures.byStation.map(d => ({ name: d.station, value: d.count }));
+  const authData     = authMethods.map(d => ({ name: d.method, value: d.value }));
+  const trendData    = sessionTrend.map(d => ({ label: d.date, peak: d.peakPower, avg: d.avgPower, sessions: d.totalSessions }));
+
+  // Charging share pie (by OEM)
+  const shareTotal = chargingShare.reduce((s, d) => s + d.value, 0);
+  const sharePie   = chargingShare.slice(0, 6).map(d => ({
+    name: d.oem,
+    value: d.value,
+    percentage: shareTotal > 0 ? Math.round((d.value / shareTotal) * 100) : 0
+  }));
 
   return (
-    <div className="bg-white min-h-screen">
-      {/* Top Navigation Bar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <BarChart3 className="w-6 h-6 text-blue-600" />
-            <h1 className="text-xl font-bold text-gray-900">Analytics Dashboard</h1>
-          </div>
-          <div className="flex items-center gap-2 ml-8">
-            <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
-              AC
-            </button>
-            <button className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200">
-              Combined
-            </button>
-            <button className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700">
-              DC
-            </button>
-          </div>
-        </div>
-        <div className="flex items-center gap-4">
-          <select className="px-4 py-2 text-sm border border-gray-300 rounded-lg bg-white">
-            <option>All Files</option>
-          </select>
-          <button className="p-2 text-gray-600 hover:text-gray-900">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-          </button>
-          <button className="p-2 text-gray-600 hover:text-gray-900">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-          </button>
-          <button className="p-2 text-gray-600 hover:text-gray-900">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      </div>
+    <div className="bg-gray-50 min-h-screen">
+      <div className="space-y-4 p-4 max-w-[1600px] mx-auto">
 
-      <div className="space-y-6 p-6 bg-gray-50">
-        {/* Top Row: Charger Usage & Charging Shares */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Charger Usage & Readiness - Takes 2 columns */}
+        {/* Metrics Summary */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {[
+            { label: 'Total Sessions',   value: combined.totalSessions,                         color: 'text-blue-600' },
+            { label: 'Network Perf.',    value: `${combined.networkPerformance}%`,               color: combined.networkPerformance >= 70 ? 'text-green-600' : 'text-red-600' },
+            { label: 'Total Energy',     value: `${combined.totalEnergy.toFixed(1)} kWh`,        color: 'text-orange-600' },
+            { label: 'Peak Power',       value: `${combined.peakPower} kW`,                      color: 'text-purple-600' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-blue-500 hover:shadow-md transition-shadow">
+              <div className="text-xs text-gray-500 font-medium">{label}</div>
+              <div className={`text-xl font-bold mt-0.5 ${color}`}>{value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Charger Usage & Charging Share */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
             <DashboardCard title="Charger Usage & Readiness" icon={Zap} borderColorClass="border-blue-500">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full">
-                {/* Combined Charger */}
-                <div className="bg-white rounded-lg border border-gray-200 p-3">
-                  <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 text-center tracking-wide">Combined Charger</h4>
-                  <TreeSection
-                    preparing={analytics.chargerUsage.combined.preparing}
-                    charging={analytics.chargerUsage.combined.charging}
-                    negative={analytics.chargerUsage.combined.negativeStops}
-                    successful={analytics.chargerUsage.combined.positiveStops}
-                  />
+              <div className="h-full min-h-[380px] flex flex-col">
+                {/* Combined View with Customize Button */}
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="text-sm font-semibold text-gray-700">Combined View</h4>
+                  <button
+                    onClick={() => setShowConnectorModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                    View Connectors
+                  </button>
                 </div>
-                {/* Connector 1 */}
-                <div className="bg-white rounded-lg border border-gray-200 p-3">
-                  <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 text-center tracking-wide">Connector 1</h4>
-                  <TreeSection
-                    preparing={analytics.chargerUsage.connector1.preparing}
-                    charging={analytics.chargerUsage.connector1.charging}
-                    negative={analytics.chargerUsage.connector1.negativeStops}
-                    successful={analytics.chargerUsage.connector1.positiveStops}
-                  />
-                </div>
-                {/* Connector 2 */}
-                <div className="bg-white rounded-lg border border-gray-200 p-3">
-                  <h4 className="text-xs font-bold text-gray-500 uppercase mb-2 text-center tracking-wide">Connector 2</h4>
-                  <TreeSection
-                    preparing={analytics.chargerUsage.connector2.preparing}
-                    charging={analytics.chargerUsage.connector2.charging}
-                    negative={analytics.chargerUsage.connector2.negativeStops}
-                    successful={analytics.chargerUsage.connector2.positiveStops}
-                  />
+                
+                {/* Combined Connector Display */}
+                <div className="flex-1 bg-gray-50 rounded-lg border border-gray-200 p-4 flex items-center justify-center">
+                  <div className="w-full max-w-2xl">
+                    <TreeSection data={metrics.combined} />
+                  </div>
                 </div>
               </div>
             </DashboardCard>
           </div>
 
-          {/* Charging Shares - Takes 1 column */}
           <div>
-            <DashboardCard title="Charging Shares" icon={TrendingDown} borderColorClass="border-red-500">
+            <DashboardCard title="Charging Share by OEM" icon={TrendingDown} borderColorClass="border-red-500">
               <div className="h-full flex flex-col items-center justify-center">
-                <ResponsiveContainer width="100%" height={250}>
+                <ResponsiveContainer width="100%" height={220}>
                   <PieChart>
-                    <Pie
-                      data={chargingSharesData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={70}
-                      paddingAngle={5}
-                      dataKey="value"
-                      label={renderPieLabel}
-                    >
-                      {chargingSharesData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                      ))}
+                    <Pie data={sharePie} cx="50%" cy="50%" innerRadius={40} outerRadius={70}
+                      paddingAngle={5} dataKey="value" label={renderPieLabel}>
+                      {sharePie.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="flex flex-wrap justify-center gap-3 mt-2">
-                  {chargingSharesData.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded" style={{ backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}></div>
-                      <span className="text-xs font-medium text-gray-700">{item.name}</span>
+                <div className="flex flex-wrap justify-center gap-2 mt-1">
+                  {sharePie.map((item, i) => (
+                    <div key={i} className="flex items-center gap-1">
+                      <div className="w-3 h-3 rounded" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
+                      <span className="text-xs font-medium text-gray-700 truncate max-w-[90px]" title={item.name}>{item.name}</span>
                     </div>
                   ))}
                 </div>
@@ -345,81 +320,208 @@ export default function AnalyticsDashboard({ analytics }: AnalyticsDashboardProp
           </div>
         </div>
 
-        {/* Bottom Row: Negative Stops by OEM & Error Summary */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Negative Stops by OEM - Takes 2 columns */}
+        {/* Network Performance by OEM & Error Breakdown */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
-            <DashboardCard title="Negative Stops by OEM (Neg Stop%)" icon={BarChart3} borderColorClass="border-orange-600">
-              <div className="h-full">
-                <ResponsiveContainer width="100%" height={400}>
-                  <BarChart 
-                    data={oemBarData}
-                    margin={{ top: 30, right: 20, left: 20, bottom: 60 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis 
-                      dataKey="name" 
-                      angle={-45} 
-                      textAnchor="end" 
-                      height={80}
-                      interval={0}
-                      style={{ fontSize: '10px' }}
-                    />
-                    <YAxis hide />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar dataKey="value" fill="#C2410C">
-                      <LabelList content={renderCustomLabel} />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+            <DashboardCard title="1. Network Performance by OEM (Neg Stop%)" icon={BarChart3} borderColorClass="border-orange-600">
+              <ScrollableBar data={oemNetData} fill="#C2410C" cursorFill="#FEF3C7" />
             </DashboardCard>
           </div>
-
-          {/* Error Summary - Takes 1 column */}
           <div>
-            <DashboardCard title="Error Summary" icon={AlertTriangle} borderColorClass="border-orange-500">
-              {errorSummaryData.length > 0 ? (
+            <DashboardCard title="Error Breakdown" icon={AlertTriangle} borderColorClass="border-orange-500">
+              {errorData.length > 0 ? (
                 <div className="h-full flex flex-col items-center justify-center">
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={220}>
                     <PieChart>
-                      <Pie
-                        data={errorSummaryData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={40}
-                        outerRadius={70}
-                        paddingAngle={5}
-                        dataKey="value"
-                        label={renderPieLabel}
-                      >
-                        {errorSummaryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={ERROR_COLORS[index % ERROR_COLORS.length]} />
-                        ))}
+                      <Pie data={errorData} cx="50%" cy="50%" innerRadius={40} outerRadius={70}
+                        paddingAngle={5} dataKey="value" label={renderPieLabel}>
+                        {errorData.map((_, i) => <Cell key={i} fill={ERROR_COLORS[i % ERROR_COLORS.length]} />)}
                       </Pie>
                       <Tooltip content={<CustomTooltip />} />
                     </PieChart>
                   </ResponsiveContainer>
-                  <div className="flex flex-wrap justify-center gap-2 mt-2 px-2">
-                    {errorSummaryData.map((item, index) => (
-                      <div key={index} className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded" style={{ backgroundColor: ERROR_COLORS[index % ERROR_COLORS.length] }}></div>
-                        <span className="text-xs font-medium text-gray-700 truncate max-w-[120px]" title={item.name}>
-                          {item.name}
-                        </span>
+                  <div className="flex flex-wrap justify-center gap-2 mt-1 px-2">
+                    {errorData.map((item, i) => (
+                      <div key={i} className="flex items-center gap-1">
+                        <div className="w-3 h-3 rounded" style={{ backgroundColor: ERROR_COLORS[i % ERROR_COLORS.length] }} />
+                        <span className="text-xs font-medium text-gray-700 truncate max-w-[120px]" title={item.name}>{item.name}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-64 text-center text-gray-400 text-lg">
-                  No errors found
-                </div>
+                <div className="flex items-center justify-center h-64 text-gray-400">No errors found</div>
               )}
             </DashboardCard>
           </div>
         </div>
+
+        {/* Network Performance by Station */}
+        {stationData.length > 0 && (
+          <DashboardCard title="2. Network Performance by Station (Neg Stop%)" icon={Layers} borderColorClass="border-red-600">
+            <ScrollableBar data={stationData} fill="#DC2626" cursorFill="#FEE2E2" />
+          </DashboardCard>
+        )}
+
+        {/* Network Performance by CPID */}
+        {cpidData.length > 0 && (
+          <DashboardCard title="3. Network Performance by CPID (Neg Stop%)" icon={Layers} borderColorClass="border-purple-600">
+            <ScrollableBar data={cpidData} fill="#7C3AED" cursorFill="#F3E8FF" />
+          </DashboardCard>
+        )}
+
+        {/* Precharging Failures by OEM */}
+        {preOEMData.length > 0 && (
+          <DashboardCard title="4. Precharging Failure by OEM" icon={Layers} borderColorClass="border-orange-500">
+            <ScrollableBar data={preOEMData} fill="#F59E0B" labelType="count" cursorFill="#FEF3C7" />
+          </DashboardCard>
+        )}
+
+        {/* Precharging Failures by Station */}
+        {preStatData.length > 0 && (
+          <DashboardCard title="5. Precharging Failure by Station" icon={Layers} borderColorClass="border-purple-500">
+            <ScrollableBar data={preStatData} fill="#8B5CF6" labelType="count" cursorFill="#EDE9FE" />
+          </DashboardCard>
+        )}
+
+        {/* Auth Methods & Session Trend */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
+            <DashboardCard title="6. Session Trend (Power Quality)" icon={Activity} borderColorClass="border-green-500">
+              {trendData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={380}>
+                  <LineChart data={trendData} margin={{ top: 10, right: 60, left: 20, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis dataKey="label" axisLine={false} tickLine={false}
+                      tick={{ fill: '#6B7280', fontSize: 10 }} dy={10} minTickGap={30} />
+                    <YAxis yAxisId="left"  axisLine={false} tickLine={false} tick={{ fill: '#F59E0B', fontSize: 9 }} width={40} />
+                    <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false}
+                      tick={{ fill: '#10B981', fontSize: 9 }} width={50} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend verticalAlign="top" align="right" height={30} iconSize={8}
+                      wrapperStyle={{ fontSize: '10px' }}
+                      content={(props: any) => (
+                        <div className="flex gap-4 justify-end text-xs">
+                          {props.payload?.map((e: any, i: number) => (
+                            <div key={i} className="flex items-center gap-1">
+                              <div className="w-3 h-0.5" style={{ backgroundColor: e.color }} />
+                              <span style={{ color: e.color, fontWeight: 'bold' }}>
+                                {e.value === 'Peak Power' ? 'Peak (L)' : 'Avg (R)'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    />
+                    <Line yAxisId="left"  type="monotone" dataKey="peak" name="Peak Power"
+                      stroke={COLORS.orange} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                    <Line yAxisId="right" type="monotone" dataKey="avg"  name="Avg Power"
+                      stroke={COLORS.green} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-64 text-gray-400">No trend data available</div>
+              )}
+            </DashboardCard>
+          </div>
+
+          {authData.length > 0 && (
+            <DashboardCard title="Auth Methods" icon={Users} borderColorClass="border-blue-400">
+              <ResponsiveContainer width="100%" height={380}>
+                <BarChart data={authData} margin={{ top: 30, right: 20, left: 20, bottom: 40 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                  <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                  <YAxis hide />
+                  <Tooltip content={<CustomTooltip />} />
+                  <Bar dataKey="value" fill="#3B82F6" radius={[6, 6, 0, 0]}>
+                    <LabelList dataKey="value" position="top" fill="#000" fontSize={11} fontWeight="bold" />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </DashboardCard>
+          )}
+        </div>
       </div>
+
+      {/* Connector Modal */}
+      {showConnectorModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Zap className="w-6 h-6 text-white" />
+                <h2 className="text-xl font-bold text-white">Connector Details</h2>
+              </div>
+              <button
+                onClick={() => setShowConnectorModal(false)}
+                className="p-2 hover:bg-blue-500 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-white" />
+              </button>
+            </div>
+
+            {/* Connector Selection */}
+            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-semibold text-gray-700">Select Connectors:</span>
+                <div className="flex gap-3">
+                  {[0, 1, 2, 3, 4, 5, 6].map(num => (
+                    <label key={num} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedConnectors.includes(num)}
+                        onChange={() => toggleConnector(num)}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-sm font-medium text-gray-700">Connector {num}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {selectedConnectors.length > 0 ? (
+                <div className={`grid gap-6 ${
+                  selectedConnectors.length === 1 ? 'grid-cols-1' :
+                  selectedConnectors.length === 2 ? 'grid-cols-1 md:grid-cols-2' :
+                  'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+                }`}>
+                  {selectedConnectors.map(num => {
+                    const key = `connector${num}` as keyof typeof metrics;
+                    return (
+                      <div key={num} className="bg-white rounded-xl border-2 border-gray-200 shadow-sm hover:shadow-md transition-shadow p-5">
+                        <h4 className="text-sm font-bold text-blue-600 uppercase mb-4 text-center tracking-wide border-b-2 border-blue-200 pb-2">
+                          Connector {num}
+                        </h4>
+                        <TreeSection data={metrics[key]} />
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+                  <Settings className="w-16 h-16 mb-4 opacity-50" />
+                  <p className="text-lg font-medium">No connectors selected</p>
+                  <p className="text-sm mt-2">Select at least one connector to view details</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => setShowConnectorModal(false)}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

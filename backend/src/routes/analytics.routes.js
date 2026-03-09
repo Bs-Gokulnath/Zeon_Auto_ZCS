@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { getAnalyticsByDateRange } = require('../controllers/analyticsController');
+const { getDashboard, getCpidRankings, getFilterOptions } = require('../controllers/analyticsController');
 const authenticate = require('../middleware/auth');
 
-// Get analytics by date range (protected route)
-router.get('/dashboard', authenticate, getAnalyticsByDateRange);
+router.get('/filter-options', authenticate, getFilterOptions);
+router.get('/dashboard', authenticate, getDashboard);
+router.get('/dashboard/cpid-rankings', authenticate, getCpidRankings);
 
 module.exports = router;

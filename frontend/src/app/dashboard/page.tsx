@@ -1,304 +1,319 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiFetch } from '@/src/lib/api';
-import AnalyticsDashboard from '@/src/components/AnalyticsDashboard';
+import { Calendar, X } from 'lucide-react';
+import { dashboardFetch } from '@/src/lib/api';
+import AnalyticsDashboard, { Analytics } from '@/src/components/AnalyticsDashboard';
 
-interface User {
-  id: string;
-  email: string;
+interface User { id: string; email: string; }
+
+// ─── Searchable Dropdown ──────────────────────────────────────────────────────
+
+function SearchableDropdown({
+  label, placeholder, hint, items, value, loading, disabled,
+  onSelect, onClear,
+}: {
+  label: string; placeholder: string; hint: string;
+  items: string[]; value: string; loading: boolean; disabled: boolean;
+  onSelect: (v: string) => void; onClear: () => void;
+}) {
+  const [input, setInput] = useState(value);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setInput(value); }, [value]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = items.filter(s =>
+    input ? s.toLowerCase().includes(input.toLowerCase()) : true
+  );
+
+  return (
+    <div className="relative" ref={ref}>
+      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <div className="relative">
+        <input
+          type="text"
+          value={input}
+          onChange={e => { setInput(e.target.value); setOpen(true); if (!e.target.value) onClear(); }}
+          onFocus={() => setOpen(true)}
+          placeholder={loading ? 'Loading...' : placeholder}
+          disabled={disabled || loading}
+          className="w-full px-4 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400 text-sm"
+        />
+        {input && !disabled && (
+          <button onClick={() => { setInput(''); setOpen(false); onClear(); }}
+            className="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {open && !loading && !disabled && (
+        <div className="absolute z-50 w-full mt-1 bg-white border-2 border-blue-300 rounded-lg shadow-2xl max-h-64 overflow-y-auto">
+          {filtered.length > 0 ? (
+            <>
+              <div className="sticky top-0 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800 border-b border-blue-200">
+                {filtered.length} results
+              </div>
+              {filtered.slice(0, 100).map((item, i) => (
+                <button key={i} onClick={() => { onSelect(item); setInput(item); setOpen(false); }}
+                  className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm border-b border-gray-100 last:border-0 truncate">
+                  {item}
+                </button>
+              ))}
+              {filtered.length > 100 && (
+                <div className="px-3 py-1.5 text-xs text-amber-700 bg-amber-50 border-t border-amber-200">
+                  Showing 100 of {filtered.length} — type to narrow down
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="px-4 py-3 text-sm text-gray-500 text-center">No results</div>
+          )}
+        </div>
+      )}
+
+      <p className="mt-1 text-xs text-gray-500">
+        {value ? `✓ Selected: ${value}` : hint}
+      </p>
+    </div>
+  );
 }
 
-interface SessionData {
-  _id: string;
-  date: string;
-  [key: string]: any;
-}
+// ─── Calendar ─────────────────────────────────────────────────────────────────
 
-interface ChargerStats {
-  preparing: number;
-  preparingPerc: number;
-  charging: number;
-  chargingPerc: number;
-  preCharging: number;
-  preChargingPerc: number;
-  negativeStops: number;
-  negativeStopsPerc: number;
-  positiveStops: number;
-  positiveStopsPerc: number;
-  successRate: number;
-  successRateText: string;
-}
+function DateRangePicker({ startDate, endDate, onChange }: {
+  startDate: Date | null; endDate: Date | null;
+  onChange: (s: Date | null, e: Date | null) => void;
+}) {
+  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 1));
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState<Date | null>(null);
 
-interface Analytics {
-  chargerUsage: {
-    combined: ChargerStats;
-    connector1: ChargerStats;
-    connector2: ChargerStats;
+  const formatDisplay = (d: Date | null) => {
+    if (!d) return '';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
-  chargingShares: {
-    negativeStops: number;
-    positiveStops: number;
-    preChargingFailure: number;
+
+  const isSame = (a: Date | null, b: Date | null) =>
+    !!a && !!b && a.toDateString() === b.toDateString();
+
+  const inRange = (d: Date) =>
+    !!startDate && !!endDate && d >= startDate && d <= endDate;
+
+  const renderMonth = (offset: number) => {
+    const mo = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset);
+    const first = new Date(mo.getFullYear(), mo.getMonth(), 1).getDay();
+    const last  = new Date(mo.getFullYear(), mo.getMonth() + 1, 0).getDate();
+    const cells = [];
+    for (let i = 0; i < first; i++) cells.push(<div key={`e${i}`} className="h-9 w-9" />);
+    for (let d = 1; d <= last; d++) {
+      const date = new Date(mo.getFullYear(), mo.getMonth(), d);
+      const sel  = isSame(date, startDate) || isSame(date, endDate);
+      const range = inRange(date) && !sel;
+      cells.push(
+        <div key={d}
+          onMouseDown={() => { setIsDragging(true); setDragStart(date); onChange(date, null); }}
+          onMouseEnter={() => {
+            if (isDragging && dragStart) {
+              const [s, e] = date >= dragStart ? [dragStart, date] : [date, dragStart];
+              onChange(s, e);
+            }
+          }}
+          onMouseUp={() => setIsDragging(false)}
+          className={`h-9 w-9 flex items-center justify-center text-sm cursor-pointer select-none rounded-lg
+            ${sel   ? 'bg-blue-600 text-white font-semibold shadow-md'   : ''}
+            ${range ? 'bg-blue-100 text-blue-900 font-medium' : ''}
+            ${!sel && !range ? 'hover:bg-gray-100 text-gray-700' : ''}
+          `}
+        >{d}</div>
+      );
+    }
+    const name = mo.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    return (
+      <div>
+        <div className="text-center font-semibold text-gray-800 mb-3">{name}</div>
+        <div className="grid grid-cols-7 gap-1 mb-1">
+          {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d =>
+            <div key={d} className="h-8 w-9 flex items-center justify-center text-xs text-gray-500 font-medium">{d}</div>
+          )}
+        </div>
+        <div className="grid grid-cols-7 gap-1">{cells}</div>
+      </div>
+    );
   };
-  oemAnalytics: Array<{ oem: string; negativeStopPercentage: number }>;
-  errorSummary: Array<{ error: string; count: number; percentage: number }>;
+
+  return (
+    <div onMouseUp={() => setIsDragging(false)}>
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
+          className="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-700 font-medium">← Prev</button>
+        <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
+          className="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-700 font-medium">Next →</button>
+      </div>
+      <div className="grid grid-cols-2 gap-8">
+        {renderMonth(0)}
+        {renderMonth(1)}
+      </div>
+      {(startDate || endDate) && (
+        <div className="mt-4 flex items-center gap-2 text-sm">
+          {startDate && <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg font-medium">{formatDisplay(startDate)}</span>}
+          {endDate && endDate.toDateString() !== startDate?.toDateString() && (
+            <><span className="text-gray-400">→</span>
+            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg font-medium">{formatDisplay(endDate)}</span></>
+          )}
+          <button onClick={() => onChange(null, null)} className="ml-2 text-xs text-red-500 hover:text-red-700">Clear</button>
+        </div>
+      )}
+    </div>
+  );
 }
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [startDate, setStartDate] = useState<Date | null>(null);
-  const [endDate, setEndDate] = useState<Date | null>(null);
-  const [hoverDate, setHoverDate] = useState<Date | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 1)); // Feb 2026
-  
-  // Analytics states
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [fetchingData, setFetchingData] = useState(false);
-  const [dataMessage, setDataMessage] = useState('');
-  const [selectedDateRange, setSelectedDateRange] = useState<{ start: string; end: string } | null>(null);
+
+  // Filter options from backend
+  const [stations, setStations]   = useState<string[]>([]);
+  const [oems, setOems]           = useState<string[]>([]);
+  const [loadingFilters, setLoadingFilters] = useState(false);
+
+  // Selected filters
+  const [stationFilter, setStationFilter] = useState('');
+  const [oemFilter, setOemFilter]         = useState('');
+  const [cpidFilter, setCpidFilter]       = useState('');
+  const [connectorType, setConnectorType] = useState('Combined');
+  const [startDate, setStartDate]         = useState<Date | null>(null);
+  const [endDate, setEndDate]             = useState<Date | null>(null);
+  const [showCalendar, setShowCalendar]   = useState(false);
+
+  // Results
+  const [analytics, setAnalytics]         = useState<Analytics | null>(null);
+  const [fetchingData, setFetchingData]   = useState(false);
+  const [dataMessage, setDataMessage]     = useState('');
+  const [sessionCount, setSessionCount]   = useState(0);
+  const [showFilters, setShowFilters]     = useState(true);
 
   useEffect(() => {
-    // Check if user is authenticated
-    const token = localStorage.getItem('token');
-    const userStr = localStorage.getItem('user');
+    const token    = localStorage.getItem('token');
+    const userStr  = localStorage.getItem('user');
     const loginDate = localStorage.getItem('loginDate');
-
-    if (!token || !userStr) {
-      router.push('/login');
-      return;
+    if (!token || !userStr) { router.push('/login'); return; }
+    const today = new Date().toDateString();
+    if (loginDate && loginDate !== today) {
+      ['token','user','loginDate'].forEach(k => localStorage.removeItem(k));
+      router.push('/login'); return;
     }
-
-    // Check if it's a new day - if yes, auto logout
-    const currentDate = new Date().toDateString();
-    if (loginDate && loginDate !== currentDate) {
-      // New day detected, logout user
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('loginDate');
-      router.push('/login');
-      return;
-    }
-
     setUser(JSON.parse(userStr));
     setLoading(false);
+
+    // Filter options will be loaded with first dashboard data fetch
+    // No separate API call needed as Python backend returns filterOptions with dashboard data
   }, [router]);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    localStorage.removeItem('loginDate');
+    ['token','user','loginDate'].forEach(k => localStorage.removeItem(k));
     router.push('/login');
   };
 
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    const startingDayOfWeek = firstDay.getDay();
-    
-    return { daysInMonth, startingDayOfWeek, year, month };
+  const formatDate = (d: Date | null) => {
+    if (!d) return '';
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   };
 
-  const handleDateClick = (date: Date) => {
-    if (!startDate || (startDate && endDate)) {
-      setStartDate(date);
-      setEndDate(null);
-    } else if (date < startDate) {
-      setEndDate(startDate);
-      setStartDate(date);
-    } else {
-      setEndDate(date);
-    }
-  };
+  const formatDisplay = (d: Date | null) =>
+    d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 
-  const handleMouseDown = (date: Date) => {
-    setIsDragging(true);
-    setStartDate(date);
-    setEndDate(null);
-  };
-
-  const handleMouseEnter = (date: Date) => {
-    setHoverDate(date);
-    if (isDragging) {
-      if (date < startDate!) {
-        setEndDate(startDate);
-        setStartDate(date);
-      } else {
-        setEndDate(date);
-      }
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  const isDateInRange = (date: Date) => {
-    if (!startDate) return false;
-    if (!endDate && !hoverDate) return date.getTime() === startDate.getTime();
-    
-    const end = endDate || (isDragging ? hoverDate : null);
-    if (!end) return date.getTime() === startDate.getTime();
-    
-    return date >= startDate && date <= end;
-  };
-
-  const isDateSelected = (date: Date) => {
-    if (!startDate) return false;
-    if (startDate && !endDate) return date.getTime() === startDate.getTime();
-    if (startDate && endDate) {
-      return date.getTime() === startDate.getTime() || date.getTime() === endDate.getTime();
-    }
-    return false;
-  };
-
-  const formatDate = (date: Date | null) => {
-    if (!date) return '';
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const renderCalendar = (monthOffset: number) => {
-    const displayDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + monthOffset);
-    const { daysInMonth, startingDayOfWeek, year, month } = getDaysInMonth(displayDate);
-    const monthName = displayDate.toLocaleString('en-US', { month: 'short', year: 'numeric' });
-    
-    const days = [];
-    const weekDays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
-    // Previous month's days
-    for (let i = 0; i < startingDayOfWeek; i++) {
-      days.push(<div key={`empty-${i}`} className="h-8 w-8"></div>);
-    }
-
-    // Current month's days
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day);
-      const isInRange = isDateInRange(date);
-      const isSelected = isDateSelected(date);
-      const isToday = date.toDateString() === new Date(2026, 2, 2).toDateString();
-
-      days.push(
-        <div
-          key={day}
-          onMouseDown={() => handleMouseDown(date)}
-          onMouseEnter={() => handleMouseEnter(date)}
-          onMouseUp={handleMouseUp}
-          className={`h-8 w-8 flex items-center justify-center text-sm cursor-pointer select-none rounded
-            ${isSelected ? 'bg-gray-800 text-white font-semibold' : ''}
-            ${isInRange && !isSelected ? 'bg-gray-100' : ''}
-            ${!isInRange && !isSelected ? 'hover:bg-gray-50' : ''}
-            ${isToday && !isSelected ? 'border border-gray-800' : ''}
-          `}
-        >
-          {day}
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex-1">
-        <div className="text-center font-semibold mb-4">{monthName}</div>
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {weekDays.map(day => (
-            <div key={day} className="h-8 w-8 flex items-center justify-center text-xs font-medium text-gray-600">
-              {day}
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-1">
-          {days}
-        </div>
-      </div>
-    );
-  };
-
-  const handlePrevMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
-  };
-
-  const handleNextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
-  };
-
-  const fetchSessionData = async (start: Date, end?: Date) => {
+  const fetchData = async (typeOverride?: string) => {
+    if (!startDate) return;
     setFetchingData(true);
     setDataMessage('');
     setAnalytics(null);
-    
+
+    const s = formatDate(startDate);
+    const e = formatDate(endDate || startDate);
+    const ct = typeOverride ?? connectorType;
+
+    const params = new URLSearchParams({ start_date: s, end_date: e });
+    if (ct !== 'Combined')  params.append('connector_type', ct);
+    if (stationFilter)      params.append('s_n', stationFilter);
+    if (oemFilter)          params.append('oem', oemFilter);
+    if (cpidFilter.trim())  params.append('cp_id', cpidFilter.trim());
+
     try {
-      const startStr = formatDate(start);
-      const endStr = end ? formatDate(end) : formatDate(start);
+      // Call Python FastAPI backend
+      const res = await dashboardFetch(`/dashboard?${params}`, { method: 'GET' });
       
-      const response = await apiFetch(
-        `/analytics/dashboard?startDate=${startStr}${end ? `&endDate=${endStr}` : ''}`,
-        { method: 'GET' }
-      );
-      
-      if (response.success) {
-        setAnalytics(response.analytics);
-        setSelectedDateRange({ start: startStr, end: endStr });
+      // Python backend returns data directly (no success wrapper)
+      if (res && res.metrics) {
+        // Update filter options from response
+        if (res.filterOptions) {
+          setStations(res.filterOptions.stations || []);
+          setOems(res.filterOptions.oems || []);
+          setLoadingFilters(false);
+        }
         
-        if (!response.analytics) {
-          const dateText = startStr === endStr ? `date ${startStr}` : `date range ${startStr} to ${endStr}`;
-          setDataMessage(`No data available for the selected ${dateText}`);
+        // Calculate session count from metrics
+        const count = res.metrics?.combined?.totalSessions || 0;
+        
+        if (count > 0) {
+          setAnalytics(res as Analytics);
+          setSessionCount(count);
+          setShowFilters(false);
         } else {
-          const dateText = startStr === endStr ? `date ${startStr}` : `date range ${startStr} to ${endStr}`;
-          setDataMessage(`Analytics for ${dateText} (${response.count} sessions)`);
+          setDataMessage(`No sessions found for the selected filters and date range.`);
         }
       } else {
-        setDataMessage(response.message || 'Error fetching data');
+        setDataMessage('No data available for the selected filters.');
       }
     } catch (error) {
-      console.error('Error fetching analytics:', error);
+      console.error('Dashboard fetch error:', error);
       setDataMessage('Error fetching data. Please try again.');
     } finally {
       setFetchingData(false);
     }
   };
 
-  const handleExportExcel = async () => {
-    if (startDate) {
-      setShowModal(false);
-      await fetchSessionData(startDate, endDate || undefined);
-    }
+  const handleConnectorTypeChange = (type: string) => {
+    setConnectorType(type);
+    if (analytics) fetchData(type);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="text-gray-600">Loading...</div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <nav className="bg-white border-b border-gray-200 shadow-sm">
+      {/* Nav */}
+      <nav className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">
-                Zeon <span className="text-emerald-600"></span>
-              </h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-gray-600">{user?.email}</span>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
-              >
+          <div className="flex justify-between items-center h-14">
+            <h1 className="text-xl font-bold text-gray-900">Zeon Analytics</h1>
+            <div className="flex items-center gap-3">
+              {analytics && (
+                <button onClick={() => setShowFilters(v => !v)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
+                  {showFilters ? 'Hide Filters' : 'Change Filters'}
+                </button>
+              )}
+              <span className="text-sm text-gray-500">{user?.email}</span>
+              <button onClick={handleLogout}
+                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
                 Logout
               </button>
             </div>
@@ -306,123 +321,166 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="w-full bg-gray-50 min-h-screen">
-        {!analytics && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <button
-              onClick={() => setShowModal(true)}
-              className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-semibold shadow-md"
-            >
-              Select Date Range
-            </button>
-          </div>
-        )}
+      {/* Filter Panel */}
+      {showFilters && (
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          <div className="bg-white rounded-2xl shadow-lg p-6 space-y-5">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {analytics ? 'Update Filters' : 'Select Filters & Date Range'}
+            </h2>
 
-        {/* Data Display Section */}
-        {fetchingData && (
-          <div className="flex items-center justify-center py-12">
-            <div className="flex flex-col items-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600"></div>
-              <p className="mt-4 text-gray-600">Fetching data...</p>
+            {/* Connector Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Connector Type</label>
+              <div className="flex gap-2">
+                {['AC', 'Combined', 'DC'].map(t => (
+                  <button key={t} onClick={() => setConnectorType(t)}
+                    className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors
+                      ${connectorType === t
+                        ? 'bg-emerald-600 text-white shadow'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                    {t}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
 
-        {!fetchingData && dataMessage && !analytics && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
-            <div className="p-4 rounded-lg bg-yellow-50 border border-yellow-200">
-              <p className="text-yellow-800 font-medium">
-                {dataMessage}
+            {/* Station */}
+            <SearchableDropdown
+              label="Filter by Station Name (Optional)"
+              placeholder={`Click to see all stations or type to search… (${stations.length} available)`}
+              hint={`Click to view all ${stations.length} stations or type to filter`}
+              items={stations}
+              value={stationFilter}
+              loading={loadingFilters}
+              disabled={!!oemFilter || !!cpidFilter}
+              onSelect={v => { setStationFilter(v); setOemFilter(''); setCpidFilter(''); }}
+              onClear={() => setStationFilter('')}
+            />
+
+            {/* OEM */}
+            <SearchableDropdown
+              label="OR Filter by OEM Manufacturer (Optional)"
+              placeholder={`Click to see all OEMs or type to search… (${oems.length} available)`}
+              hint={`Click to view all ${oems.length} OEM manufacturers${stationFilter ? ' (disabled when station is selected)' : ''}`}
+              items={oems}
+              value={oemFilter}
+              loading={loadingFilters}
+              disabled={!!stationFilter || !!cpidFilter}
+              onSelect={v => { setOemFilter(v); setStationFilter(''); setCpidFilter(''); }}
+              onClear={() => setOemFilter('')}
+            />
+
+            {/* CPID */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                OR Filter by Charge Point ID (Optional)
+              </label>
+              <input
+                type="text"
+                value={cpidFilter}
+                onChange={e => { setCpidFilter(e.target.value); if (e.target.value) { setStationFilter(''); setOemFilter(''); } }}
+                placeholder="e.g., 100028 or ocpp_100028"
+                disabled={!!stationFilter || !!oemFilter}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Enter a specific CPID (disabled when station or OEM is selected)
               </p>
-              {selectedDateRange && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Date Range: {selectedDateRange.start} to {selectedDateRange.end}
-                </p>
+            </div>
+
+            {/* Date Range */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Select Date or Date Range (Custom)
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  readOnly
+                  value={
+                    startDate && endDate && endDate.toDateString() !== startDate.toDateString()
+                      ? `${formatDisplay(startDate)} – ${formatDisplay(endDate)}`
+                      : startDate ? formatDisplay(startDate) : ''
+                  }
+                  placeholder="Click to select date"
+                  onClick={() => setShowCalendar(v => !v)}
+                  className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg cursor-pointer focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                />
+                <Calendar className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+              </div>
+
+              {showCalendar && (
+                <div className="mt-2 border border-gray-200 rounded-xl p-4 bg-white shadow-lg">
+                  <DateRangePicker
+                    startDate={startDate} endDate={endDate}
+                    onChange={(s, e) => { setStartDate(s); setEndDate(e); }}
+                  />
+                  <div className="flex justify-end mt-3">
+                    <button onClick={() => setShowCalendar(false)}
+                      className="px-5 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-medium">
+                      Done
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Error / no-data message */}
+            {dataMessage && (
+              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
+                {dataMessage}
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => fetchData()}
+                disabled={!startDate || fetchingData}
+                className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm"
+              >
+                {fetchingData ? 'Fetching…' : 'Fetch Data'}
+              </button>
+              <button
+                onClick={() => {
+                  setStationFilter(''); setOemFilter(''); setCpidFilter('');
+                  setStartDate(null); setEndDate(null); setDataMessage('');
+                  setConnectorType('Combined');
+                }}
+                className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
+                Clear All
+              </button>
+              {analytics && (
+                <button onClick={() => setShowFilters(false)}
+                  className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 ml-auto">
+                  Cancel
+                </button>
               )}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {!fetchingData && analytics && (
-          <AnalyticsDashboard analytics={analytics} />
-        )}
-      </main>
-
-      {/* Date Range Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4" onMouseUp={handleMouseUp}>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-semibold">Please choose a date or date range to view data</h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Date Input */}
-            <div className="mb-6 relative">
-              <input
-                type="text"
-                value={`${formatDate(startDate)} ${endDate && endDate.getTime() !== startDate?.getTime() ? '→ ' + formatDate(endDate) : ''}`}
-                readOnly
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-white text-gray-600"
-                placeholder="Select date or date range"
-              />
-              <button className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Calendar Navigation */}
-            <div className="flex justify-center items-center mb-4 space-x-4">
-              <button onClick={handlePrevMonth} className="p-1 hover:bg-gray-100 rounded">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <button onClick={handleNextMonth} className="p-1 hover:bg-gray-100 rounded">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Calendars */}
-            <div className="flex gap-8 mb-6">
-              {renderCalendar(0)}
-              {renderCalendar(1)}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setStartDate(null);
-                  setEndDate(null);
-                  setShowModal(false);
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleExportExcel}
-                disabled={!startDate}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
-                Fetch Data
-              </button>
-            </div>
+      {/* Loading */}
+      {fetchingData && (
+        <div className="flex items-center justify-center py-16">
+          <div className="flex flex-col items-center gap-4">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
+            <p className="text-gray-600">Fetching analytics…</p>
           </div>
         </div>
+      )}
+
+      {/* Dashboard */}
+      {!fetchingData && analytics && (
+        <>
+          <AnalyticsDashboard
+            analytics={analytics}
+            connectorType={connectorType}
+            onConnectorTypeChange={handleConnectorTypeChange}
+          />
+        </>
       )}
     </div>
   );

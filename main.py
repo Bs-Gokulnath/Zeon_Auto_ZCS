@@ -732,7 +732,7 @@ async def dashboard(
         # --------------------------------------------------
         # 10. Negative stops by OEM and station
         # --------------------------------------------------
-        def _negative_by_group(group_col):
+        def _negative_by_group(group_col, field_name):
             rows = []
             if group_col not in df.columns:
                 return rows
@@ -742,38 +742,38 @@ async def dashboard(
                     continue
                 neg = int(grp["is_negative"].sum())
                 rows.append({
-                    "name": str(name),
+                    field_name: str(name),
                     "totalSessions": total,
                     "negativeStops": neg,
-                    "percentage": round(neg / total * 100, 2),
+                    "negativeStopPercentage": round(neg / total * 100, 2),
                     "pCount": int(grp["is_precharging_fail"].sum()),
                     "cCount": int(grp["is_charging_fail"].sum()),
                     "nCount": int(grp["is_incomplete"].sum()),
                 })
-            rows.sort(key=lambda x: x["percentage"], reverse=True)
+            rows.sort(key=lambda x: x["negativeStopPercentage"], reverse=True)
             return rows
 
         network_performance = {
-            "byOEM": _negative_by_group("oem_name"),
-            "byStation": _negative_by_group("station_name"),
+            "byOEM": _negative_by_group("oem_name", "oem"),
+            "byStation": _negative_by_group("station_name", "station"),
         }
 
         # --------------------------------------------------
         # 11. Precharging failures by OEM and station
         # --------------------------------------------------
-        def _precharging_by_group(group_col):
+        def _precharging_by_group(group_col, field_name):
             rows = []
             if group_col not in df.columns:
                 return rows
             pf = df[df["is_precharging_fail"] == 1]
             for name, grp in pf.groupby(group_col):
-                rows.append({"name": str(name), "count": len(grp)})
+                rows.append({field_name: str(name), "count": len(grp)})
             rows.sort(key=lambda x: x["count"], reverse=True)
             return rows
 
         precharging_failures = {
-            "byOEM": _precharging_by_group("oem_name"),
-            "byStation": _precharging_by_group("station_name"),
+            "byOEM": _precharging_by_group("oem_name", "oem"),
+            "byStation": _precharging_by_group("station_name", "station"),
         }
 
         # --------------------------------------------------

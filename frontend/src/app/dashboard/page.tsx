@@ -223,6 +223,26 @@ export default function DashboardPage() {
     // No separate API call needed as Python backend returns filterOptions with dashboard data
   }, [router]);
 
+  // Close modal on ESC key press
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showFilters) {
+        setShowFilters(false);
+      }
+    };
+    
+    if (showFilters) {
+      document.addEventListener('keydown', handleEscape);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+    
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.style.overflow = 'unset';
+    };
+  }, [showFilters]);
+
   const handleLogout = () => {
     ['token','user','loginDate'].forEach(k => localStorage.removeItem(k));
     router.push('/login');
@@ -321,16 +341,31 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      {/* Filter Panel */}
+      {/* Filter Panel - Modal Overlay */}
       {showFilters && (
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="bg-white rounded-2xl shadow-lg p-6 space-y-5">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {analytics ? 'Update Filters' : 'Select Filters & Date Range'}
-            </h2>
+        <div 
+          className="fixed inset-0 bg-transparent z-50 flex items-center justify-center px-4 backdrop-blur-sm transition-all duration-300"
+          onClick={(e) => {
+            // Close modal if clicking on backdrop (not the modal content)
+            if (e.target === e.currentTarget) setShowFilters(false);
+          }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-7xl w-full transform transition-all duration-300 scale-100 opacity-100">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {analytics ? 'Update Filters' : 'Select Filters & Date Range'}
+              </h2>
+              <button 
+                onClick={() => setShowFilters(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close filters"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
 
             {/* Connector Type */}
-            <div>
+            <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">Connector Type</label>
               <div className="flex gap-2">
                 {['AC', 'Combined', 'DC'].map(t => (
@@ -345,85 +380,94 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Station */}
-            <SearchableDropdown
-              label="Filter by Station Name (Optional)"
-              placeholder={`Click to see all stations or type to search… (${stations.length} available)`}
-              hint={`Click to view all ${stations.length} stations or type to filter`}
-              items={stations}
-              value={stationFilter}
-              loading={loadingFilters}
-              disabled={!!oemFilter || !!cpidFilter}
-              onSelect={v => { setStationFilter(v); setOemFilter(''); setCpidFilter(''); }}
-              onClear={() => setStationFilter('')}
-            />
-
-            {/* OEM */}
-            <SearchableDropdown
-              label="OR Filter by OEM Manufacturer (Optional)"
-              placeholder={`Click to see all OEMs or type to search… (${oems.length} available)`}
-              hint={`Click to view all ${oems.length} OEM manufacturers${stationFilter ? ' (disabled when station is selected)' : ''}`}
-              items={oems}
-              value={oemFilter}
-              loading={loadingFilters}
-              disabled={!!stationFilter || !!cpidFilter}
-              onSelect={v => { setOemFilter(v); setStationFilter(''); setCpidFilter(''); }}
-              onClear={() => setOemFilter('')}
-            />
-
-            {/* CPID */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                OR Filter by Charge Point ID (Optional)
-              </label>
-              <input
-                type="text"
-                value={cpidFilter}
-                onChange={e => { setCpidFilter(e.target.value); if (e.target.value) { setStationFilter(''); setOemFilter(''); } }}
-                placeholder="e.g., 100028 or ocpp_100028"
-                disabled={!!stationFilter || !!oemFilter}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Enter a specific CPID (disabled when station or OEM is selected)
-              </p>
-            </div>
-
-            {/* Date Range */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select Date or Date Range (Custom)
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  readOnly
-                  value={
-                    startDate && endDate && endDate.toDateString() !== startDate.toDateString()
-                      ? `${formatDisplay(startDate)} – ${formatDisplay(endDate)}`
-                      : startDate ? formatDisplay(startDate) : ''
-                  }
-                  placeholder="Click to select date"
-                  onClick={() => setShowCalendar(v => !v)}
-                  className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg cursor-pointer focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+            {/* Two Column Layout */}
+            <div className="grid grid-cols-2 gap-6 mb-6">
+              {/* Left Column */}
+              <div className="space-y-5">
+                {/* Station */}
+                <SearchableDropdown
+                  label="Filter by Station Name (Optional)"
+                  placeholder={`Click to see all stations or type to search… (${stations.length} available)`}
+                  hint={`Click to view all ${stations.length} stations or type to filter`}
+                  items={stations}
+                  value={stationFilter}
+                  loading={loadingFilters}
+                  disabled={!!oemFilter || !!cpidFilter}
+                  onSelect={v => { setStationFilter(v); setOemFilter(''); setCpidFilter(''); }}
+                  onClear={() => setStationFilter('')}
                 />
-                <Calendar className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+
+                {/* OEM */}
+                <SearchableDropdown
+                  label="OR Filter by OEM Manufacturer (Optional)"
+                  placeholder={`Click to see all OEMs or type to search… (${oems.length} available)`}
+                  hint={`Click to view all ${oems.length} OEM manufacturers${stationFilter ? ' (disabled when station is selected)' : ''}`}
+                  items={oems}
+                  value={oemFilter}
+                  loading={loadingFilters}
+                  disabled={!!stationFilter || !!cpidFilter}
+                  onSelect={v => { setOemFilter(v); setStationFilter(''); setCpidFilter(''); }}
+                  onClear={() => setOemFilter('')}
+                />
               </div>
 
-              {showCalendar && (
-                <div className="mt-2 border border-gray-200 rounded-xl p-4 bg-white shadow-lg">
-                  <DateRangePicker
-                    startDate={startDate} endDate={endDate}
-                    onChange={(s, e) => { setStartDate(s); setEndDate(e); }}
+              {/* Right Column */}
+              <div className="space-y-5">
+                {/* CPID */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    OR Filter by Charge Point ID (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={cpidFilter}
+                    onChange={e => { setCpidFilter(e.target.value); if (e.target.value) { setStationFilter(''); setOemFilter(''); } }}
+                    placeholder="e.g., 100028 or ocpp_100028"
+                    disabled={!!stationFilter || !!oemFilter}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400"
                   />
-                  <div className="flex justify-end mt-3">
-                    <button onClick={() => setShowCalendar(false)}
-                      className="px-5 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-medium">
-                      Done
-                    </button>
-                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Enter a specific CPID (disabled when station or OEM is selected)
+                  </p>
                 </div>
-              )}
+
+                {/* Date Range */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Select Date or Date Range (Custom)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      readOnly
+                      value={
+                        startDate && endDate && endDate.toDateString() !== startDate.toDateString()
+                          ? `${formatDisplay(startDate)} – ${formatDisplay(endDate)}`
+                          : startDate ? formatDisplay(startDate) : ''
+                      }
+                      placeholder="Click to select date"
+                      onClick={() => setShowCalendar(v => !v)}
+                      className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg cursor-pointer focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                    />
+                    <Calendar className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+                  </div>
+
+                  {showCalendar && (
+                    <div className="mt-2 border border-gray-200 rounded-xl p-4 bg-white shadow-lg">
+                      <DateRangePicker
+                        startDate={startDate} endDate={endDate}
+                        onChange={(s, e) => { setStartDate(s); setEndDate(e); }}
+                      />
+                      <div className="flex justify-end mt-3">
+                        <button onClick={() => setShowCalendar(false)}
+                          className="px-5 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-medium">
+                          Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Error / no-data message */}

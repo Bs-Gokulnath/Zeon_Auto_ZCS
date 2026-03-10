@@ -160,19 +160,75 @@ const DashboardCard: React.FC<{
 
 const renderPieLabel = (props: any) => {
   const { cx, cy, midAngle, innerRadius, outerRadius, percentage } = props;
+  
+  // Don't show label if percentage is too small
+  if (percentage < 2) return null;
+  
   const RADIAN = Math.PI / 180;
   const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
+  
   return (
-    <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'}
-      dominantBaseline="central" fontSize="12" fontWeight="bold">
-      {`${percentage}%`}
-    </text>
+    <g>
+      {/* White background for better contrast */}
+      <text 
+        x={x} 
+        y={y} 
+        textAnchor="middle"
+        dominantBaseline="central" 
+        fontSize="13" 
+        fontWeight="700"
+        stroke="white"
+        strokeWidth="3"
+        fill="white"
+      >
+        {`${percentage}%`}
+      </text>
+      {/* Black text on top */}
+      <text 
+        x={x} 
+        y={y} 
+        fill="#000000"
+        textAnchor="middle"
+        dominantBaseline="central" 
+        fontSize="13" 
+        fontWeight="700"
+      >
+        {`${percentage}%`}
+      </text>
+    </g>
   );
 };
 
 // ─── Scrollable Bar Chart wrapper ─────────────────────────────────────────────
+
+// Custom Tick Component for better label display
+const CustomXAxisTick: React.FC<any> = ({ x, y, payload }) => {
+  const maxLength = 15; // Maximum characters before truncation
+  const fullText = payload.value || '';
+  const displayText = fullText.length > maxLength 
+    ? `${fullText.substring(0, maxLength)}...` 
+    : fullText;
+  
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        x={0}
+        y={0}
+        dy={16}
+        textAnchor="end"
+        fill="#374151"
+        fontSize={10}
+        fontWeight="600"
+        transform="rotate(-45)"
+        title={fullText}
+      >
+        {displayText}
+      </text>
+    </g>
+  );
+};
 
 const ScrollableBar: React.FC<{
   data: any[];
@@ -185,10 +241,16 @@ const ScrollableBar: React.FC<{
     <div className={data.length > 10 ? 'overflow-x-auto h-full' : 'h-full'}>
       <div style={{ minWidth, height: '100%' }}>
         <ResponsiveContainer width="100%" height={380}>
-          <BarChart data={data} margin={{ top: 30, right: 20, left: 20, bottom: 90 }}>
+          <BarChart data={data} margin={{ top: 30, right: 20, left: 20, bottom: 100 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-            <XAxis dataKey="name" tick={{ fontSize: 9, fontWeight: 'bold' }}
-              axisLine={false} tickLine={false} dy={10} interval={0} angle={-45} textAnchor="end" />
+            <XAxis 
+              dataKey="name" 
+              tick={<CustomXAxisTick />}
+              axisLine={false} 
+              tickLine={false} 
+              interval={0}
+              height={90}
+            />
             <YAxis hide />
             <Tooltip cursor={{ fill: cursorFill, stroke: 'none' }} content={<CustomTooltip />} />
             <Bar dataKey="value" fill={fill} radius={[6, 6, 0, 0]}>
@@ -196,7 +258,7 @@ const ScrollableBar: React.FC<{
                 dataKey="value"
                 position="top"
                 fill="#000"
-                fontSize={10}
+                fontSize={11}
                 fontWeight="bold"
                 formatter={labelType === 'percent' ? (v: any) => `${v}%` : undefined}
               />
@@ -268,8 +330,9 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
           ))}
         </div>
 
-        {/* Charger Usage & Charging Share */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Charger Usage, Charging Share & Error Breakdown - Top Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {/* Charger Usage (2 columns) */}
           <div className="lg:col-span-2">
             <DashboardCard title="Charger Usage & Readiness" icon={Zap} borderColorClass="border-blue-500">
               <div className="h-full min-h-[380px] flex flex-col">
@@ -295,66 +358,87 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
             </DashboardCard>
           </div>
 
+          {/* Charging Share by OEM (1 column) */}
           <div>
             <DashboardCard title="Charging Share by OEM" icon={TrendingDown} borderColorClass="border-red-500">
-              <div className="h-full flex flex-col items-center justify-center">
-                <ResponsiveContainer width="100%" height={220}>
+              <div className="h-full min-h-[380px] flex flex-col items-center justify-center">
+                <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
-                    <Pie data={sharePie} cx="50%" cy="50%" innerRadius={40} outerRadius={70}
-                      paddingAngle={5} dataKey="value" label={renderPieLabel}>
+                    <Pie 
+                      data={sharePie} 
+                      cx="50%" 
+                      cy="50%" 
+                      innerRadius={50} 
+                      outerRadius={85}
+                      paddingAngle={3} 
+                      dataKey="value" 
+                      label={renderPieLabel}
+                      strokeWidth={2}
+                      stroke="#fff"
+                    >
                       {sharePie.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="flex flex-wrap justify-center gap-2 mt-1">
+                <div className="flex flex-wrap justify-center gap-2 mt-2 px-2">
                   {sharePie.map((item, i) => (
                     <div key={i} className="flex items-center gap-1">
-                      <div className="w-3 h-3 rounded" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
-                      <span className="text-xs font-medium text-gray-700 truncate max-w-[90px]" title={item.name}>{item.name}</span>
+                      <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }} />
+                      <span className="text-xs font-semibold text-gray-700 truncate max-w-[90px]" title={item.name}>{item.name}</span>
                     </div>
                   ))}
                 </div>
               </div>
             </DashboardCard>
           </div>
-        </div>
 
-        {/* Network Performance by OEM & Error Breakdown */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2">
-            <DashboardCard title="1. Network Performance by OEM (Neg Stop%)" icon={BarChart3} borderColorClass="border-orange-600">
-              <ScrollableBar data={oemNetData} fill="#C2410C" cursorFill="#FEF3C7" />
-            </DashboardCard>
-          </div>
+          {/* Error Breakdown (1 column) */}
           <div>
             <DashboardCard title="Error Breakdown" icon={AlertTriangle} borderColorClass="border-orange-500">
-              {errorData.length > 0 ? (
-                <div className="h-full flex flex-col items-center justify-center">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie data={errorData} cx="50%" cy="50%" innerRadius={40} outerRadius={70}
-                        paddingAngle={5} dataKey="value" label={renderPieLabel}>
-                        {errorData.map((_, i) => <Cell key={i} fill={ERROR_COLORS[i % ERROR_COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip content={<CustomTooltip />} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="flex flex-wrap justify-center gap-2 mt-1 px-2">
-                    {errorData.map((item, i) => (
-                      <div key={i} className="flex items-center gap-1">
-                        <div className="w-3 h-3 rounded" style={{ backgroundColor: ERROR_COLORS[i % ERROR_COLORS.length] }} />
-                        <span className="text-xs font-medium text-gray-700 truncate max-w-[120px]" title={item.name}>{item.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-64 text-gray-400">No errors found</div>
-              )}
+              <div className="h-full min-h-[380px] flex flex-col items-center justify-center">
+                {errorData.length > 0 ? (
+                  <>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <PieChart>
+                        <Pie 
+                          data={errorData} 
+                          cx="50%" 
+                          cy="50%" 
+                          innerRadius={50} 
+                          outerRadius={85}
+                          paddingAngle={3} 
+                          dataKey="value" 
+                          label={renderPieLabel}
+                          strokeWidth={2}
+                          stroke="#fff"
+                        >
+                          {errorData.map((_, i) => <Cell key={i} fill={ERROR_COLORS[i % ERROR_COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="flex flex-wrap justify-center gap-2 mt-2 px-2">
+                      {errorData.map((item, i) => (
+                        <div key={i} className="flex items-center gap-1">
+                          <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: ERROR_COLORS[i % ERROR_COLORS.length] }} />
+                          <span className="text-xs font-semibold text-gray-700 truncate max-w-[100px]" title={item.name}>{item.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-400">No errors found</div>
+                )}
+              </div>
             </DashboardCard>
           </div>
         </div>
+
+        {/* Network Performance by OEM - Full Width */}
+        <DashboardCard title="1. Network Performance by OEM (Neg Stop%)" icon={BarChart3} borderColorClass="border-orange-600">
+          <ScrollableBar data={oemNetData} fill="#C2410C" cursorFill="#FEF3C7" />
+        </DashboardCard>
 
         {/* Network Performance by Station */}
         {stationData.length > 0 && (
@@ -445,7 +529,7 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
 
       {/* Connector Modal */}
       {showConnectorModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-transparent backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-4 flex items-center justify-between">

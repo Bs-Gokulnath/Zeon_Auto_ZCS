@@ -222,7 +222,6 @@ const CustomXAxisTick: React.FC<any> = ({ x, y, payload }) => {
         fontSize={10}
         fontWeight="600"
         transform="rotate(-45)"
-        title={fullText}
       >
         {displayText}
       </text>
@@ -315,21 +314,6 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
     <div className="bg-gray-50 min-h-screen">
       <div className="space-y-4 p-4 max-w-[1600px] mx-auto">
 
-        {/* Metrics Summary */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { label: 'Total Sessions',   value: combined.totalSessions,                         color: 'text-blue-600' },
-            { label: 'Network Perf.',    value: `${combined.networkPerformance}%`,               color: combined.networkPerformance >= 70 ? 'text-green-600' : 'text-red-600' },
-            { label: 'Total Energy',     value: `${combined.totalEnergy.toFixed(1)} kWh`,        color: 'text-orange-600' },
-            { label: 'Peak Power',       value: `${combined.peakPower} kW`,                      color: 'text-purple-600' },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="bg-white rounded-lg shadow-sm p-3 border-l-4 border-blue-500 hover:shadow-md transition-shadow">
-              <div className="text-xs text-gray-500 font-medium">{label}</div>
-              <div className={`text-xl font-bold mt-0.5 ${color}`}>{value}</div>
-            </div>
-          ))}
-        </div>
-
         {/* Charger Usage, Charging Share & Error Breakdown - Top Row */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
           {/* Charger Usage (2 columns) */}
@@ -373,6 +357,7 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
                       paddingAngle={3} 
                       dataKey="value" 
                       label={renderPieLabel}
+                      labelLine={false}
                       strokeWidth={2}
                       stroke="#fff"
                     >
@@ -410,6 +395,7 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
                           paddingAngle={3} 
                           dataKey="value" 
                           label={renderPieLabel}
+                          labelLine={false}
                           strokeWidth={2}
                           stroke="#fff"
                         >

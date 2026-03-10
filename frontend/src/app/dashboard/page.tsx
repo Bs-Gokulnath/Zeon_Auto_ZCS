@@ -38,7 +38,7 @@ function SearchableDropdown({
 
   return (
     <div className="relative" ref={ref}>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
       <div className="relative">
         <input
           type="text"
@@ -47,12 +47,12 @@ function SearchableDropdown({
           onFocus={() => setOpen(true)}
           placeholder={loading ? 'Loading...' : placeholder}
           disabled={disabled || loading}
-          className="w-full px-4 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400 text-sm"
+          className="w-full px-3 py-1.5 pr-8 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400 text-xs"
         />
         {input && !disabled && (
           <button onClick={() => { setInput(''); setOpen(false); onClear(); }}
-            className="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600">
-            <X className="w-4 h-4" />
+            className="absolute right-2 top-1.5 text-gray-400 hover:text-gray-600">
+            <X className="w-3 h-3" />
           </button>
         )}
       </div>
@@ -61,30 +61,27 @@ function SearchableDropdown({
         <div className="absolute z-50 w-full mt-1 bg-white border-2 border-blue-300 rounded-lg shadow-2xl max-h-64 overflow-y-auto">
           {filtered.length > 0 ? (
             <>
-              <div className="sticky top-0 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-800 border-b border-blue-200">
+              <div className="sticky top-0 bg-blue-50 px-3 py-1.5 text-[10px] font-semibold text-blue-800 border-b border-blue-200">
                 {filtered.length} results
               </div>
               {filtered.slice(0, 100).map((item, i) => (
                 <button key={i} onClick={() => { onSelect(item); setInput(item); setOpen(false); }}
-                  className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm border-b border-gray-100 last:border-0 truncate">
+                  className="w-full text-left px-3 py-1.5 hover:bg-blue-50 text-xs border-b border-gray-100 last:border-0 truncate">
                   {item}
                 </button>
               ))}
               {filtered.length > 100 && (
-                <div className="px-3 py-1.5 text-xs text-amber-700 bg-amber-50 border-t border-amber-200">
+                <div className="px-3 py-1.5 text-[10px] text-amber-700 bg-amber-50 border-t border-amber-200">
                   Showing 100 of {filtered.length} — type to narrow down
                 </div>
               )}
             </>
           ) : (
-            <div className="px-4 py-3 text-sm text-gray-500 text-center">No results</div>
+            <div className="px-3 py-2 text-xs text-gray-500 text-center">No results</div>
           )}
         </div>
       )}
-
-      <p className="mt-1 text-xs text-gray-500">
-        {value ? `✓ Selected: ${value}` : hint}
-      </p>
+      {hint && <p className="mt-0.5 text-[10px] text-gray-500">{hint}</p>}
     </div>
   );
 }
@@ -160,9 +157,8 @@ function DateRangePicker({ startDate, endDate, onChange }: {
         <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
           className="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-700 font-medium">Next →</button>
       </div>
-      <div className="grid grid-cols-2 gap-8">
+      <div>
         {renderMonth(0)}
-        {renderMonth(1)}
       </div>
       {(startDate || endDate) && (
         <div className="mt-4 flex items-center gap-2 text-sm">
@@ -188,6 +184,7 @@ export default function DashboardPage() {
   // Filter options from backend
   const [stations, setStations]   = useState<string[]>([]);
   const [oems, setOems]           = useState<string[]>([]);
+  const [cpids, setCpids]         = useState<string[]>([]);
   const [loadingFilters, setLoadingFilters] = useState(false);
 
   // Selected filters
@@ -219,29 +216,25 @@ export default function DashboardPage() {
     setUser(JSON.parse(userStr));
     setLoading(false);
 
-    // Filter options will be loaded with first dashboard data fetch
-    // No separate API call needed as Python backend returns filterOptions with dashboard data
+    // Load filter options on mount
+    fetchFilterOptions();
   }, [router]);
 
-  // Close modal on ESC key press
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && showFilters) {
-        setShowFilters(false);
+  const fetchFilterOptions = async () => {
+    setLoadingFilters(true);
+    try {
+      const res = await dashboardFetch('/filter-options', { method: 'GET' });
+      if (res) {
+        setStations(res.stations || []);
+        setOems(res.oems || []);
+        setCpids(res.cpids || []);
       }
-    };
-    
-    if (showFilters) {
-      document.addEventListener('keydown', handleEscape);
-      // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden';
+    } catch (error) {
+      console.error('Error loading filter options:', error);
+    } finally {
+      setLoadingFilters(false);
     }
-    
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [showFilters]);
+  };
 
   const handleLogout = () => {
     ['token','user','loginDate'].forEach(k => localStorage.removeItem(k));
@@ -282,7 +275,7 @@ export default function DashboardPage() {
         if (res.filterOptions) {
           setStations(res.filterOptions.stations || []);
           setOems(res.filterOptions.oems || []);
-          setLoadingFilters(false);
+          setCpids(res.filterOptions.cpids || []);
         }
         
         // Calculate session count from metrics
@@ -321,14 +314,20 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Nav */}
       <nav className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-14">
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          {/* Top Row - Title and User Info */}
+          <div className="flex justify-between items-center mb-3">
             <h1 className="text-xl font-bold text-gray-900">Zeon Analytics</h1>
             <div className="flex items-center gap-3">
               {analytics && (
-                <button onClick={() => setShowFilters(v => !v)}
-                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700">
-                  {showFilters ? 'Hide Filters' : 'Change Filters'}
+                <button
+                  onClick={() => {
+                    setStationFilter(''); setOemFilter(''); setCpidFilter('');
+                    setStartDate(null); setEndDate(null); setDataMessage('');
+                    setConnectorType('Combined');
+                  }}
+                  className="px-3 py-1.5 text-xs rounded border border-gray-300 text-gray-700 hover:bg-gray-50">
+                  Clear All Filters
                 </button>
               )}
               <span className="text-sm text-gray-500">{user?.email}</span>
@@ -338,170 +337,139 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
-        </div>
-      </nav>
 
-      {/* Filter Panel - Modal Overlay */}
-      {showFilters && (
-        <div 
-          className="fixed inset-0 bg-transparent z-50 flex items-center justify-center px-4 backdrop-blur-sm transition-all duration-300"
-          onClick={(e) => {
-            // Close modal if clicking on backdrop (not the modal content)
-            if (e.target === e.currentTarget) setShowFilters(false);
-          }}
-        >
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-7xl w-full transform transition-all duration-300 scale-100 opacity-100">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {analytics ? 'Update Filters' : 'Select Filters & Date Range'}
-              </h2>
-              <button 
-                onClick={() => setShowFilters(false)}
-                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="Close filters"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            {/* Connector Type */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Connector Type</label>
-              <div className="flex gap-2">
-                {['AC', 'Combined', 'DC'].map(t => (
-                  <button key={t} onClick={() => setConnectorType(t)}
-                    className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors
-                      ${connectorType === t
-                        ? 'bg-emerald-600 text-white shadow'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                    {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Two Column Layout */}
-            <div className="grid grid-cols-2 gap-6 mb-6">
-              {/* Left Column */}
-              <div className="space-y-5">
-                {/* Station */}
-                <SearchableDropdown
-                  label="Filter by Station Name (Optional)"
-                  placeholder={`Click to see all stations or type to search… (${stations.length} available)`}
-                  hint={`Click to view all ${stations.length} stations or type to filter`}
-                  items={stations}
-                  value={stationFilter}
-                  loading={loadingFilters}
-                  disabled={!!oemFilter || !!cpidFilter}
-                  onSelect={v => { setStationFilter(v); setOemFilter(''); setCpidFilter(''); }}
-                  onClear={() => setStationFilter('')}
+          {/* Filter Row */}
+          <div className="grid grid-cols-7 gap-3 items-start">
+            {/* Date Range Picker - First */}
+            <div className="relative col-span-2">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Select Date or Date Range</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  readOnly
+                  value={
+                    startDate && endDate && endDate.toDateString() !== startDate.toDateString()
+                      ? `${formatDisplay(startDate)} – ${formatDisplay(endDate)}`
+                      : startDate ? formatDisplay(startDate) : ''
+                  }
+                  placeholder="Click to select date"
+                  onClick={() => setShowCalendar(v => !v)}
+                  className="w-full px-3 py-1.5 pr-8 text-xs border border-gray-300 rounded cursor-pointer focus:ring-2 focus:ring-blue-500 bg-white"
                 />
-
-                {/* OEM */}
-                <SearchableDropdown
-                  label="OR Filter by OEM Manufacturer (Optional)"
-                  placeholder={`Click to see all OEMs or type to search… (${oems.length} available)`}
-                  hint={`Click to view all ${oems.length} OEM manufacturers${stationFilter ? ' (disabled when station is selected)' : ''}`}
-                  items={oems}
-                  value={oemFilter}
-                  loading={loadingFilters}
-                  disabled={!!stationFilter || !!cpidFilter}
-                  onSelect={v => { setOemFilter(v); setStationFilter(''); setCpidFilter(''); }}
-                  onClear={() => setOemFilter('')}
-                />
+                <Calendar className="absolute right-2 top-1.5 w-3 h-3 text-gray-400 pointer-events-none" />
               </div>
-
-              {/* Right Column */}
-              <div className="space-y-5">
-                {/* CPID */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    OR Filter by Charge Point ID (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={cpidFilter}
-                    onChange={e => { setCpidFilter(e.target.value); if (e.target.value) { setStationFilter(''); setOemFilter(''); } }}
-                    placeholder="e.g., 100028 or ocpp_100028"
-                    disabled={!!stationFilter || !!oemFilter}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:text-gray-400"
+              {showCalendar && (
+                <div className="absolute top-full mt-1 left-0 z-50 border border-gray-200 rounded-xl p-4 bg-white shadow-2xl">
+                  <DateRangePicker
+                    startDate={startDate} endDate={endDate}
+                    onChange={(s, e) => { setStartDate(s); setEndDate(e); }}
                   />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Enter a specific CPID (disabled when station or OEM is selected)
-                  </p>
-                </div>
-
-                {/* Date Range */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Select Date or Date Range (Custom)
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      readOnly
-                      value={
-                        startDate && endDate && endDate.toDateString() !== startDate.toDateString()
-                          ? `${formatDisplay(startDate)} – ${formatDisplay(endDate)}`
-                          : startDate ? formatDisplay(startDate) : ''
-                      }
-                      placeholder="Click to select date"
-                      onClick={() => setShowCalendar(v => !v)}
-                      className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg cursor-pointer focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                    />
-                    <Calendar className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <div className="flex justify-end mt-3">
+                    <button onClick={() => setShowCalendar(false)}
+                      className="px-4 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 font-medium">
+                      Done
+                    </button>
                   </div>
+                </div>
+              )}
+              <p className="mt-0.5 text-[10px] text-gray-500">Select date range</p>
+            </div>
 
-                  {showCalendar && (
-                    <div className="mt-2 border border-gray-200 rounded-xl p-4 bg-white shadow-lg">
-                      <DateRangePicker
-                        startDate={startDate} endDate={endDate}
-                        onChange={(s, e) => { setStartDate(s); setEndDate(e); }}
-                      />
-                      <div className="flex justify-end mt-3">
-                        <button onClick={() => setShowCalendar(false)}
-                          className="px-5 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 font-medium">
-                          Done
-                        </button>
-                      </div>
-                    </div>
-                  )}
+            {/* OEM Filter - Second */}
+            <div className="relative">
+              <label className="block text-xs font-medium text-gray-700 mb-1">OR Filter by OEM (Optional)</label>
+              <SearchableDropdown
+                label=""
+                placeholder={`${oems.length} available`}
+                hint={`Click to view all ${oems.length} OEM manufacturers`}
+                items={oems}
+                value={oemFilter}
+                loading={loadingFilters}
+                disabled={!!stationFilter || !!cpidFilter}
+                onSelect={(v) => { setOemFilter(v); setStationFilter(''); setCpidFilter(''); }}
+                onClear={() => setOemFilter('')}
+              />
+            </div>
+
+            {/* CPID Filter - Third */}
+            <div className="relative">
+              <label className="block text-xs font-medium text-gray-700 mb-1">OR Filter by CPID (Optional)</label>
+              <SearchableDropdown
+                label=""
+                placeholder={cpids.length > 0 ? `${cpids.length} available` : "Type a CPID"}
+                hint={cpids.length > 0 ? `Select from ${cpids.length} CPIDs` : "Enter a specific CPID"}
+                items={cpids}
+                value={cpidFilter}
+                loading={loadingFilters}
+                disabled={!!stationFilter || !!oemFilter}
+                onSelect={(v) => { setCpidFilter(v); setStationFilter(''); setOemFilter(''); }}
+                onClear={() => setCpidFilter('')}
+              />
+            </div>
+
+            {/* Station Filter - Fourth */}
+            <div className="relative">
+              <label className="block text-xs font-medium text-gray-700 mb-1">Filter by Station (Optional)</label>
+              <SearchableDropdown
+                label=""
+                placeholder={`${stations.length} available`}
+                hint={`Click to view all ${stations.length} stations or type to filter`}
+                items={stations}
+                value={stationFilter}
+                loading={loadingFilters}
+                disabled={!!oemFilter || !!cpidFilter}
+                onSelect={(v) => { setStationFilter(v); setOemFilter(''); setCpidFilter(''); }}
+                onClear={() => setStationFilter('')}
+              />
+            </div>
+
+            {/* Connector Type - Combined on top, AC/DC below */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Connector</label>
+              <div className="flex flex-col gap-1">
+                {/* Combined button - full width */}
+                <button onClick={() => setConnectorType('Combined')}
+                  className={`px-3 py-2 rounded text-xs font-medium transition-colors
+                    ${connectorType === 'Combined'
+                      ? 'bg-emerald-600 text-white shadow'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                  Combined
+                </button>
+                {/* AC and DC buttons - side by side */}
+                <div className="flex gap-1">
+                  {['AC', 'DC'].map(t => (
+                    <button key={t} onClick={() => setConnectorType(t)}
+                      className={`flex-1 px-3 py-2 rounded text-xs font-medium transition-colors
+                        ${connectorType === t
+                          ? 'bg-emerald-600 text-white shadow'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                      {t}
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Error / no-data message */}
-            {dataMessage && (
-              <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
-                {dataMessage}
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex gap-3 pt-1">
+            {/* Fetch Data Button */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">&nbsp;</label>
               <button
                 onClick={() => fetchData()}
                 disabled={!startDate || fetchingData}
-                className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed text-sm"
+                className="w-full px-4 py-1.5 bg-emerald-600 text-white rounded text-xs font-semibold hover:bg-emerald-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 {fetchingData ? 'Fetching…' : 'Fetch Data'}
               </button>
-              <button
-                onClick={() => {
-                  setStationFilter(''); setOemFilter(''); setCpidFilter('');
-                  setStartDate(null); setEndDate(null); setDataMessage('');
-                  setConnectorType('Combined');
-                }}
-                className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50">
-                Clear All
-              </button>
-              {analytics && (
-                <button onClick={() => setShowFilters(false)}
-                  className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 ml-auto">
-                  Cancel
-                </button>
-              )}
             </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Data Message */}
+      {dataMessage && (
+        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
+            {dataMessage}
           </div>
         </div>
       )}

@@ -8,23 +8,34 @@ exports.getFilterOptions = async (req, res) => {
 
     const stations = new Set();
     const oems = new Set();
-    const cpids = new Set();
+    const cpidsMap = new Map(); // Changed to Map to store structured data
 
     cpDetails.forEach(cp => {
       const station = cp.station_name || cp.Station_Name || cp['Station Identity'] || cp.station;
       const oem = cp.oem || cp.OEM || cp.Make || cp.manufacturer;
       const cpid = cp.cp_id || cp.charge_point_id || cp.chargePointId || cp.CPID;
+      const capacity = cp.capacity || cp.Capacity || cp.max_power || cp.Max_Power || cp.rated_power || '';
 
       if (station) stations.add(station);
       if (oem) oems.add(oem);
-      if (cpid) cpids.add(cpid);
+      if (cpid && !cpidsMap.has(cpid)) {
+        cpidsMap.set(cpid, { 
+          cpid, 
+          oem: oem || 'Unknown', 
+          capacity: capacity 
+        });
+      }
     });
+
+    const cpidsArray = Array.from(cpidsMap.values()).sort((a, b) => a.cpid.localeCompare(b.cpid));
+    console.log('[DEBUG getFilterOptions] Total CPIDs:', cpidsArray.length);
+    console.log('[DEBUG getFilterOptions] First 3 CPIDs:', cpidsArray.slice(0, 3));
 
     res.json({ 
       success: true, 
       stations: [...stations].sort(), 
       oems: [...oems].sort(), 
-      cpids: [...cpids].sort() 
+      cpids: cpidsArray
     });
   } catch (error) {
     console.error('Error fetching filter options:', error);
@@ -60,18 +71,49 @@ const buildDateConditions = (startDate, endDate) => {
 const buildQuery = (orConditions, { cpId, stationName, oemFilter, connectorType }) => {
   const query = { $or: orConditions };
 
-  if (cpId) {
+  // Helper function to handle single values or arrays
+  const normalizeToArray = (value) => {
+    if (!value) return [];
+    return Array.isArray(value) ? value : [value];
+  };
+
+  // Handle multiple CPIDs
+  const cpIds = normalizeToArray(cpId);
+  if (cpIds.length > 0) {
     query.$and = query.$and || [];
-    query.$and.push({ $or: [{ cp_id: cpId }, { charge_point_id: cpId }, { chargePointId: cpId }, { CPID: cpId }] });
+    const cpidConditions = cpIds.flatMap(id => [
+      { cp_id: id },
+      { charge_point_id: id },
+      { chargePointId: id },
+      { CPID: id }
+    ]);
+    query.$and.push({ $or: cpidConditions });
   }
-  if (stationName) {
+
+  // Handle multiple stations
+  const stations = normalizeToArray(stationName);
+  if (stations.length > 0) {
     query.$and = query.$and || [];
-    query.$and.push({ $or: [{ station_name: stationName }, { Station_Name: stationName }, { 'Station Identity': stationName }] });
+    const stationConditions = stations.flatMap(station => [
+      { station_name: station },
+      { Station_Name: station },
+      { 'Station Identity': station }
+    ]);
+    query.$and.push({ $or: stationConditions });
   }
-  if (oemFilter) {
+
+  // Handle multiple OEMs
+  const oems = normalizeToArray(oemFilter);
+  if (oems.length > 0) {
     query.$and = query.$and || [];
-    query.$and.push({ $or: [{ oem: oemFilter }, { OEM: oemFilter }, { Make: oemFilter }] });
+    const oemConditions = oems.flatMap(oem => [
+      { oem: oem },
+      { OEM: oem },
+      { Make: oem }
+    ]);
+    query.$and.push({ $or: oemConditions });
   }
+
   if (connectorType && connectorType !== 'Combined') {
     query.$and = query.$and || [];
     query.$and.push({ $or: [{ connector_type: connectorType }, { ac_dc: connectorType }] });
@@ -119,17 +161,19 @@ exports.getDashboard = async (req, res) => {
       console.log(`[DEBUG getDashboard] Sample CP cpid: "${sampleCpid}" (type: ${typeof sampleCpid})`);
     }
 
-    // Create lookup map: cp_id -> {oem, station_name}
+    // Create lookup map: cp_id -> {oem, station_name, capacity}
     const cpDetailsMap = new Map();
     cpDetails.forEach(cp => {
       const cpid = cp.cp_id || cp.charge_point_id || cp.chargePointId || cp.CPID;
       if (cpid) {
         const oemValue = cp.oem || cp.OEM || cp.Make || cp.manufacturer || 'Unknown';
         const stationValue = cp.station_name || cp.Station_Name || cp['Station Identity'] || cp.station || 'Unknown';
+        const capacityValue = cp.capacity || cp.Capacity || cp.max_power || cp.Max_Power || cp.rated_power || '';
         
         cpDetailsMap.set(cpid, {
           oem: oemValue,
           station: stationValue,
+          capacity: capacityValue,
           cpid: cpid
         });
         
@@ -195,14 +239,16 @@ exports.getCpidRankings = async (req, res) => {
       CPDetails.find({})
     ]);
 
-    // Create lookup map: cp_id -> {oem, station_name}
+    // Create lookup map: cp_id -> {oem, station_name, capacity}
     const cpDetailsMap = new Map();
     cpDetails.forEach(cp => {
       const cpid = cp.cp_id || cp.charge_point_id || cp.chargePointId || cp.CPID;
       if (cpid) {
+        const capacityValue = cp.capacity || cp.Capacity || cp.max_power || cp.Max_Power || cp.rated_power || '';
         cpDetailsMap.set(cpid, {
           oem: cp.oem || cp.OEM || cp.Make || cp.manufacturer || 'Unknown',
           station: cp.station_name || cp.Station_Name || cp['Station Identity'] || cp.station || 'Unknown',
+          capacity: capacityValue,
           cpid: cpid
         });
       }
@@ -217,13 +263,17 @@ exports.getCpidRankings = async (req, res) => {
 
       if (!cpidMap[key]) cpidMap[key] = { chargingSessions: 0, negativeStops: 0 };
 
-      const stopVal = String(record.stop || '').toLowerCase();
-      const isPre   = record.is_Charging === 0;
-      const isPos   = !isPre && stopVal === 'successful';
-      const isNeg   = !isPre && !isPos;
+      // Classification logic matching Python build_summary function:
+      // - Charging Sessions: is_Charging === 1 (entered charging state)
+      // - Negative: charging sessions where stop !== "Successful"
+      const stopVal = String(record.stop || '');
+      const isCharging = record.is_Charging === 1;
+      const isSuccessful = stopVal === 'Successful';
 
-      if (!isPre) cpidMap[key].chargingSessions++;
-      if (isNeg)  cpidMap[key].negativeStops++;
+      if (isCharging) {
+        cpidMap[key].chargingSessions++;
+        if (!isSuccessful) cpidMap[key].negativeStops++;
+      }
     });
 
     const rankings = Object.entries(cpidMap)
@@ -252,7 +302,7 @@ exports.getAnalyticsByDateRange = exports.getDashboard;
 
 function buildEmptyMetrics() {
   const empty = {
-    totalSessions: 0, positiveSessions: 0, negativeSessions: 0,
+    totalSessions: 0, chargingSessions: 0, positiveSessions: 0, negativeSessions: 0,
     prechargingFailures: 0, networkPerformance: 0,
     totalEnergy: 0, avgSessionDuration: 0, peakPower: 0
   };
@@ -267,12 +317,12 @@ function buildEmptyMetrics() {
 function calculateDashboard(sessionData, cpDetailsMap) {
   const oemsSet     = new Set();
   const stationsSet = new Set();
-  const cpidsSet    = new Set();
+  const cpidsMap    = new Map(); // Changed to Map to store {cpid, oem, capacity}
 
   const connectorKeys = ['combined', 'connector1', 'connector2', 'connector3', 'connector4', 'connector5', 'connector6'];
   const raw = {};
   connectorKeys.forEach(k => {
-    raw[k] = { totalSessions: 0, positiveSessions: 0, negativeSessions: 0, prechargingFailures: 0, totalEnergy: 0, totalDuration: 0, peakPower: 0 };
+    raw[k] = { totalSessions: 0, chargingSessions: 0, positiveSessions: 0, negativeSessions: 0, prechargingFailures: 0, totalEnergy: 0, totalDuration: 0, peakPower: 0 };
   });
 
   const oemNetPerf       = {};
@@ -290,14 +340,15 @@ function calculateDashboard(sessionData, cpDetailsMap) {
     const cpid = record.cp_id || record.charge_point_id || record.chargePointId || record.CPID || 'Unknown';
     
     // Look up OEM and Station from cp_details
-    const cpInfo = cpDetailsMap.get(cpid) || { oem: 'Unknown', station: 'Unknown', cpid: cpid };
+    const cpInfo = cpDetailsMap.get(cpid) || { oem: 'Unknown', station: 'Unknown', capacity: '', cpid: cpid };
     const oem = cpInfo.oem;
     const station = cpInfo.station;
+    const capacity = cpInfo.capacity;
     
     // Debug logging for first 2 lookups
     if (sessionData.indexOf(record) < 2) {
       const found = cpDetailsMap.has(cpid);
-      console.log(`[DEBUG calculateDashboard] Lookup #${sessionData.indexOf(record) + 1}: cpid="${cpid}" found=${found} -> OEM="${oem}", Station="${station}"`);
+      console.log(`[DEBUG calculateDashboard] Lookup #${sessionData.indexOf(record) + 1}: cpid="${cpid}" found=${found} -> OEM="${oem}", Station="${station}", Capacity="${capacity}"`);
     }
     
     const cpidDisplay = `${station} - ${cpid}`;
@@ -306,7 +357,10 @@ function calculateDashboard(sessionData, cpDetailsMap) {
 
     oemsSet.add(oem);
     stationsSet.add(station);
-    cpidsSet.add(cpid);
+    // Store CPID with its metadata
+    if (!cpidsMap.has(cpid)) {
+      cpidsMap.set(cpid, { cpid, oem, capacity });
+    }
 
     const energy   = parseFloat(record.session_energy_delivered_kwh || record.energy_delivered || 0);
     const duration = parseFloat(record.session_duration_minutes   || record.session_duration  || 0);
@@ -316,46 +370,61 @@ function calculateDashboard(sessionData, cpDetailsMap) {
       (duration > 0 ? (energy / (duration / 60)) : 0)
     );
 
-    // P/C/N classification — source of truth is the `stop` field
-    // Pre-charging: session never entered charging state
-    // Positive: reached charging AND stop === 'Successful'
-    // Negative: reached charging but stop was not successful
-    const stopVal = String(record.stop || '').toLowerCase();
-    const isPre   = record.is_Charging === 0;
-    const isPos   = !isPre && stopVal === 'successful';
-    const isNeg   = !isPre && !isPos;
+    // Classification matching Python build_summary function EXACTLY:
+    // - Preparing Sessions: is_Preparing === 1 (session in preparing state)
+    // - Charging Sessions: is_Charging === 1 (session entered charging state)
+    // - Successful Sessions: stop === "Successful" (successful outcomes)
+    // - Failed/Negative: stop === "Failed / Error" OR stop === "Incomplete" (non-successful outcomes)
+    
+    const stopVal = String(record.stop || '');
+    const isPreparing = record.is_Preparing === 1;
+    const isCharging = record.is_Charging === 1;
+    const isSuccessful = stopVal === 'Successful';
+    const isFailed = stopVal === 'Failed / Error' || stopVal === 'Incomplete';
 
     const updateMetrics = (key) => {
       raw[key].totalSessions++;
       raw[key].totalEnergy   += energy;
       raw[key].totalDuration += duration;
       if (peakPwr > raw[key].peakPower) raw[key].peakPower = peakPwr;
-      if (isPre)      raw[key].prechargingFailures++;
-      else if (isNeg) raw[key].negativeSessions++;
-      else            raw[key].positiveSessions++;
+      
+      // Count preparing and charging separately (can overlap if both flags are set)
+      if (isPreparing) raw[key].prechargingFailures++;
+      
+      // Count charging sessions and their outcomes
+      if (isCharging) {
+        raw[key].chargingSessions++;
+        if (isSuccessful) {
+          raw[key].positiveSessions++;
+        } else {
+          raw[key].negativeSessions++;
+        }
+      }
     };
 
     updateMetrics('combined');
     if (connectorKey && raw[connectorKey]) updateMetrics(connectorKey);
 
-    // Network performance by OEM / Station
-    if (!oemNetPerf[oem]) oemNetPerf[oem] = { positive: 0, total: 0 };
-    oemNetPerf[oem].total++;
-    if (isPos) oemNetPerf[oem].positive++;
+    // Network performance by OEM / Station (only from charging sessions)
+    if (isCharging) {
+      if (!oemNetPerf[oem]) oemNetPerf[oem] = { positive: 0, total: 0 };
+      oemNetPerf[oem].total++;
+      if (isSuccessful) oemNetPerf[oem].positive++;
 
-    if (!stationNetPerf[station]) stationNetPerf[station] = { positive: 0, negative: 0, total: 0 };
-    stationNetPerf[station].total++;
-    if (isPos) stationNetPerf[station].positive++;
-    else       stationNetPerf[station].negative++;
+      if (!stationNetPerf[station]) stationNetPerf[station] = { positive: 0, negative: 0, total: 0 };
+      stationNetPerf[station].total++;
+      if (isSuccessful) stationNetPerf[station].positive++;
+      else              stationNetPerf[station].negative++;
+    }
 
     // Precharging failures
-    if (isPre) {
+    if (isPreparing) {
       oemPrecharging[oem]      = (oemPrecharging[oem]      || 0) + 1;
       stationPrecharging[station] = (stationPrecharging[station] || 0) + 1;
     }
 
-    // Error breakdown — only count errors on negative/precharging sessions
-    if (isNeg || isPre) {
+    // Error breakdown — only count errors on non-successful charging or preparing sessions
+    if ((isCharging && !isSuccessful) || isPreparing) {
       if (record.errorCode && record.errorCode !== 'NoError') {
         errorCounts[record.errorCode] = (errorCounts[record.errorCode] || 0) + 1;
       }
@@ -394,10 +463,12 @@ function calculateDashboard(sessionData, cpDetailsMap) {
       sessionTrendMap[dateKey].total++;
     }
 
-    // CPID analytics
-    if (!cpidNegStops[cpidDisplay]) cpidNegStops[cpidDisplay] = { total: 0, negative: 0 };
-    cpidNegStops[cpidDisplay].total++;
-    if (!isPos) cpidNegStops[cpidDisplay].negative++;
+    // CPID analytics (only from charging sessions)
+    if (isCharging) {
+      if (!cpidNegStops[cpidDisplay]) cpidNegStops[cpidDisplay] = { total: 0, negative: 0 };
+      cpidNegStops[cpidDisplay].total++;
+      if (!isSuccessful) cpidNegStops[cpidDisplay].negative++;
+    }
   });
 
   // Finalise metrics
@@ -405,12 +476,13 @@ function calculateDashboard(sessionData, cpDetailsMap) {
   connectorKeys.forEach(k => {
     const m = raw[k];
     metrics[k] = {
-      totalSessions:      m.totalSessions,
-      positiveSessions:   m.positiveSessions,
-      negativeSessions:   m.negativeSessions,
+      totalSessions:       m.totalSessions,
+      chargingSessions:    m.chargingSessions,
+      positiveSessions:    m.positiveSessions,
+      negativeSessions:    m.negativeSessions,
       prechargingFailures: m.prechargingFailures,
-      networkPerformance: m.totalSessions > 0
-        ? parseFloat(((m.positiveSessions / m.totalSessions) * 100).toFixed(1))
+      networkPerformance: m.chargingSessions > 0
+        ? parseFloat(((m.positiveSessions / m.chargingSessions) * 100).toFixed(1))
         : 0,
       totalEnergy:       parseFloat(m.totalEnergy.toFixed(2)),
       avgSessionDuration: m.totalSessions > 0
@@ -487,7 +559,8 @@ function calculateDashboard(sessionData, cpDetailsMap) {
     filterOptions: {
       oems:     [...oemsSet].sort(),
       stations: [...stationsSet].sort(),
-      cpids:    [...cpidsSet].sort()
+      cpids:    Array.from(cpidsMap.values())
+        .sort((a, b) => a.cpid.localeCompare(b.cpid))
     },
     metrics,
     sessionTrend,

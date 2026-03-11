@@ -2,27 +2,26 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Calendar, X } from 'lucide-react';
+import Image from 'next/image';
+import { Calendar, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { dashboardFetch } from '@/src/lib/api';
 import AnalyticsDashboard, { Analytics } from '@/src/components/AnalyticsDashboard';
 
 interface User { id: string; email: string; }
 
-// ─── Searchable Dropdown ──────────────────────────────────────────────────────
+// ─── Multi-Select Dropdown ────────────────────────────────────────────────────
 
-function SearchableDropdown({
-  label, placeholder, hint, items, value, loading, disabled,
-  onSelect, onClear,
+function MultiSelectDropdown({
+  label, placeholder, hint, items, selectedValues, loading, disabled,
+  onSelect, onRemove, onClear,
 }: {
   label: string; placeholder: string; hint: string;
-  items: string[]; value: string; loading: boolean; disabled: boolean;
-  onSelect: (v: string) => void; onClear: () => void;
+  items: string[]; selectedValues: string[]; loading: boolean; disabled: boolean;
+  onSelect: (v: string) => void; onRemove: (v: string) => void; onClear: () => void;
 }) {
-  const [input, setInput] = useState(value);
+  const [input, setInput] = useState('');
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { setInput(value); }, [value]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -33,55 +32,84 @@ function SearchableDropdown({
   }, []);
 
   const filtered = items.filter(s =>
-    input ? s.toLowerCase().includes(input.toLowerCase()) : true
+    !selectedValues.includes(s) && 
+    (input ? s.toLowerCase().includes(input.toLowerCase()) : true)
   );
 
   return (
     <div className="relative" ref={ref}>
-      <label className="block text-xs font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-xs font-semibold text-gray-700 mb-2 uppercase tracking-wide">{label}</label>
+      
+      {/* Selected Items as Chips */}
+      {selectedValues.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-2">
+          {selectedValues.map((item, i) => (
+            <div key={i} className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-300 hover:bg-emerald-200 transition-all">
+              <span className="max-w-[150px] truncate">{item}</span>
+              <button 
+                onClick={() => onRemove(item)}
+                className="hover:text-emerald-900 transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+          {selectedValues.length > 1 && (
+            <button 
+              onClick={onClear}
+              className="inline-flex items-center gap-1 bg-red-50 text-red-600 px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-200 hover:bg-red-100 transition-all"
+            >
+              Clear All
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="relative">
         <input
           type="text"
           value={input}
-          onChange={e => { setInput(e.target.value); setOpen(true); if (!e.target.value) onClear(); }}
+          onChange={e => { setInput(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          placeholder={loading ? 'Loading...' : placeholder}
+          placeholder={loading ? 'Loading...' : selectedValues.length > 0 ? `${selectedValues.length} selected - Add more...` : placeholder}
           disabled={disabled || loading}
-          className="w-full px-3 py-1.5 pr-8 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-400 text-xs"
+          className="w-full px-4 py-2.5 pr-9 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-400 text-sm shadow-sm hover:border-gray-400 transition-all"
         />
         {input && !disabled && (
-          <button onClick={() => { setInput(''); setOpen(false); onClear(); }}
-            className="absolute right-2 top-1.5 text-gray-400 hover:text-gray-600">
-            <X className="w-3 h-3" />
+          <button onClick={() => { setInput(''); }}
+            className="absolute right-2.5 top-2.5 text-gray-400 hover:text-emerald-600 transition-colors">
+            <X className="w-4 h-4" />
           </button>
         )}
       </div>
 
       {open && !loading && !disabled && (
-        <div className="absolute z-50 w-full mt-1 bg-white border-2 border-blue-300 rounded-lg shadow-2xl max-h-64 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-xl max-h-64 overflow-y-auto">
           {filtered.length > 0 ? (
             <>
-              <div className="sticky top-0 bg-blue-50 px-3 py-1.5 text-[10px] font-semibold text-blue-800 border-b border-blue-200">
-                {filtered.length} results
+              <div className="sticky top-0 bg-gray-50 px-4 py-2 text-[10px] font-bold text-gray-600 border-b border-gray-200 uppercase tracking-wider">
+                {filtered.length} available
               </div>
               {filtered.slice(0, 100).map((item, i) => (
-                <button key={i} onClick={() => { onSelect(item); setInput(item); setOpen(false); }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-blue-50 text-xs border-b border-gray-100 last:border-0 truncate">
+                <button key={i} onClick={() => { onSelect(item); setInput(''); }}
+                  className="w-full text-left px-4 py-2.5 hover:bg-emerald-50 text-sm font-medium text-gray-700 hover:text-emerald-600 border-b border-gray-100 last:border-0 truncate transition-all">
                   {item}
                 </button>
               ))}
               {filtered.length > 100 && (
-                <div className="px-3 py-1.5 text-[10px] text-amber-700 bg-amber-50 border-t border-amber-200">
+                <div className="px-4 py-2 text-[10px] font-semibold text-emerald-600 bg-emerald-50 border-t border-emerald-100">
                   Showing 100 of {filtered.length} — type to narrow down
                 </div>
               )}
             </>
           ) : (
-            <div className="px-3 py-2 text-xs text-gray-500 text-center">No results</div>
+            <div className="px-4 py-3 text-xs text-gray-500 text-center font-medium">
+              {selectedValues.length === items.length ? 'All items selected' : 'No results'}
+            </div>
           )}
         </div>
       )}
-      {hint && <p className="mt-0.5 text-[10px] text-gray-500">{hint}</p>}
+      {hint && <p className="mt-1.5 text-[10px] text-gray-500">{hint}</p>}
     </div>
   );
 }
@@ -127,10 +155,10 @@ function DateRangePicker({ startDate, endDate, onChange }: {
             }
           }}
           onMouseUp={() => setIsDragging(false)}
-          className={`h-9 w-9 flex items-center justify-center text-sm cursor-pointer select-none rounded-lg
-            ${sel   ? 'bg-blue-600 text-white font-semibold shadow-md'   : ''}
-            ${range ? 'bg-blue-100 text-blue-900 font-medium' : ''}
-            ${!sel && !range ? 'hover:bg-gray-100 text-gray-700' : ''}
+          className={`h-10 w-10 flex items-center justify-center text-sm cursor-pointer select-none rounded-lg transition-all duration-200
+            ${sel   ? 'bg-emerald-600 text-white font-bold shadow-lg scale-110'   : ''}
+            ${range ? 'bg-emerald-100 text-emerald-900 font-semibold' : ''}
+            ${!sel && !range ? 'hover:bg-gray-100 text-gray-700 hover:scale-105 font-medium' : ''}
           `}
         >{d}</div>
       );
@@ -138,13 +166,13 @@ function DateRangePicker({ startDate, endDate, onChange }: {
     const name = mo.toLocaleString('en-US', { month: 'long', year: 'numeric' });
     return (
       <div>
-        <div className="text-center font-semibold text-gray-800 mb-3">{name}</div>
-        <div className="grid grid-cols-7 gap-1 mb-1">
+        <div className="text-center font-bold text-emerald-600 mb-4 text-lg">{name}</div>
+        <div className="grid grid-cols-7 gap-2 mb-2">
           {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d =>
-            <div key={d} className="h-8 w-9 flex items-center justify-center text-xs text-gray-500 font-medium">{d}</div>
+            <div key={d} className="h-8 w-10 flex items-center justify-center text-xs text-gray-600 font-bold uppercase">{d}</div>
           )}
         </div>
-        <div className="grid grid-cols-7 gap-1">{cells}</div>
+        <div className="grid grid-cols-7 gap-2">{cells}</div>
       </div>
     );
   };
@@ -153,21 +181,21 @@ function DateRangePicker({ startDate, endDate, onChange }: {
     <div onMouseUp={() => setIsDragging(false)}>
       <div className="flex items-center justify-between mb-4">
         <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-          className="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-700 font-medium">← Prev</button>
+          className="px-4 py-2 text-sm rounded-lg bg-white hover:bg-gray-50 text-gray-700 font-semibold border border-gray-200 transition-all shadow-sm hover:shadow-md">← Prev</button>
         <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-          className="px-3 py-1.5 text-sm rounded-lg hover:bg-gray-100 text-gray-700 font-medium">Next →</button>
+          className="px-4 py-2 text-sm rounded-lg bg-white hover:bg-gray-50 text-gray-700 font-semibold border border-gray-200 transition-all shadow-sm hover:shadow-md">Next →</button>
       </div>
       <div>
         {renderMonth(0)}
       </div>
       {(startDate || endDate) && (
         <div className="mt-4 flex items-center gap-2 text-sm">
-          {startDate && <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg font-medium">{formatDisplay(startDate)}</span>}
+          {startDate && <span className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-semibold shadow-md">{formatDisplay(startDate)}</span>}
           {endDate && endDate.toDateString() !== startDate?.toDateString() && (
-            <><span className="text-gray-400">→</span>
-            <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg font-medium">{formatDisplay(endDate)}</span></>
+            <><span className="text-gray-400 font-bold">→</span>
+            <span className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-semibold shadow-md">{formatDisplay(endDate)}</span></>
           )}
-          <button onClick={() => onChange(null, null)} className="ml-2 text-xs text-red-500 hover:text-red-700">Clear</button>
+          <button onClick={() => onChange(null, null)} className="ml-2 px-3 py-1 text-xs bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-lg font-semibold transition-colors">Clear</button>
         </div>
       )}
     </div>
@@ -184,13 +212,14 @@ export default function DashboardPage() {
   // Filter options from backend
   const [stations, setStations]   = useState<string[]>([]);
   const [oems, setOems]           = useState<string[]>([]);
-  const [cpids, setCpids]         = useState<string[]>([]);
+  const [cpids, setCpids]         = useState<Array<{cpid: string, oem: string, capacity: string}>>([]);
+  const [cpidDisplayStrings, setCpidDisplayStrings] = useState<string[]>([]); // For dropdown display
   const [loadingFilters, setLoadingFilters] = useState(false);
 
-  // Selected filters
-  const [stationFilter, setStationFilter] = useState('');
-  const [oemFilter, setOemFilter]         = useState('');
-  const [cpidFilter, setCpidFilter]       = useState('');
+  // Selected filters (now arrays for multi-select)
+  const [stationFilter, setStationFilter] = useState<string[]>([]);
+  const [oemFilter, setOemFilter]         = useState<string[]>([]);
+  const [cpidFilter, setCpidFilter]       = useState<string[]>([]);
   const [connectorType, setConnectorType] = useState('Combined');
   const [startDate, setStartDate]         = useState<Date | null>(null);
   const [endDate, setEndDate]             = useState<Date | null>(null);
@@ -202,6 +231,7 @@ export default function DashboardPage() {
   const [dataMessage, setDataMessage]     = useState('');
   const [sessionCount, setSessionCount]   = useState(0);
   const [showFilters, setShowFilters]     = useState(true);
+  const [sidebarOpen, setSidebarOpen]     = useState(true);
 
   useEffect(() => {
     const token    = localStorage.getItem('token');
@@ -220,14 +250,48 @@ export default function DashboardPage() {
     fetchFilterOptions();
   }, [router]);
 
+  // Clear filter selections when date changes
+  useEffect(() => {
+    if (startDate) {
+      // Clear all filter selections when date changes
+      setOemFilter([]);
+      setCpidFilter([]);
+      setStationFilter([]);
+      setAnalytics(null); // Clear previous data
+      setDataMessage('');
+      setSessionCount(0);
+    }
+  }, [startDate, endDate]);
+
   const fetchFilterOptions = async () => {
     setLoadingFilters(true);
     try {
       const res = await dashboardFetch('/filter-options', { method: 'GET' });
+      console.log('[DEBUG] Raw filter options response:', res);
+      console.log('[DEBUG] CPIDs array:', res?.cpids);
+      console.log('[DEBUG] First CPID item:', res?.cpids?.[0]);
       if (res) {
         setStations(res.stations || []);
         setOems(res.oems || []);
         setCpids(res.cpids || []);
+        // Format display strings: "CPID - OEM - Capacity"
+        const displayStrings = (res.cpids || []).map((item: any) => {
+          // Handle both old format (string) and new format (object)
+          if (typeof item === 'string') {
+            console.log('[DEBUG] String format CPID:', item);
+            return item; // Old format - just return the string
+          }
+          // New format - build display string
+          console.log('[DEBUG] Object format CPID:', item);
+          const parts = [item.cpid];
+          if (item.oem && item.oem !== 'Unknown') parts.push(item.oem);
+          if (item.capacity) parts.push(item.capacity);
+          const displayStr = parts.join(' - ');
+          console.log('[DEBUG] Built display string:', displayStr);
+          return displayStr;
+        });
+        console.log('[DEBUG] CPID display strings (first 5):', displayStrings.slice(0, 5));
+        setCpidDisplayStrings(displayStrings);
       }
     } catch (error) {
       console.error('Error loading filter options:', error);
@@ -261,9 +325,24 @@ export default function DashboardPage() {
 
     const params = new URLSearchParams({ start_date: s, end_date: e });
     if (ct !== 'Combined')  params.append('connector_type', ct);
-    if (stationFilter)      params.append('s_n', stationFilter);
-    if (oemFilter)          params.append('oem', oemFilter);
-    if (cpidFilter.trim())  params.append('cp_id', cpidFilter.trim());
+    
+    // Handle multiple stations
+    if (stationFilter.length > 0) {
+      stationFilter.forEach(station => params.append('s_n', station));
+    }
+    
+    // Handle multiple OEMs
+    if (oemFilter.length > 0) {
+      oemFilter.forEach(oem => params.append('oem', oem));
+    }
+    
+    // Handle multiple CPIDs - extract just the CPID from display strings
+    if (cpidFilter.length > 0) {
+      cpidFilter.forEach(displayString => {
+        const actualCpid = displayString.split(' - ')[0].trim();
+        params.append('cp_id', actualCpid);
+      });
+    }
 
     try {
       // Call Python FastAPI backend
@@ -276,6 +355,19 @@ export default function DashboardPage() {
           setStations(res.filterOptions.stations || []);
           setOems(res.filterOptions.oems || []);
           setCpids(res.filterOptions.cpids || []);
+          // Format display strings: "CPID - OEM - Capacity"
+          const displayStrings = (res.filterOptions.cpids || []).map((item: any) => {
+            // Handle both old format (string) and new format (object)
+            if (typeof item === 'string') {
+              return item; // Old format - just return the string
+            }
+            // New format - build display string
+            const parts = [item.cpid];
+            if (item.oem && item.oem !== 'Unknown') parts.push(item.oem);
+            if (item.capacity) parts.push(item.capacity);
+            return parts.join(' - ');
+          });
+          setCpidDisplayStrings(displayStrings);
         }
         
         // Calculate session count from metrics
@@ -305,195 +397,285 @@ export default function DashboardPage() {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
-      <div className="text-gray-600">Loading...</div>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-16 h-16 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        <div className="text-gray-700 font-semibold">Loading...</div>
+      </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Nav */}
-      <nav className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
-        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          {/* Top Row - Title and User Info */}
-          <div className="flex justify-between items-center mb-3">
-            <h1 className="text-xl font-bold text-gray-900">Zeon Analytics</h1>
-            <div className="flex items-center gap-3">
-              {analytics && (
-                <button
-                  onClick={() => {
-                    setStationFilter(''); setOemFilter(''); setCpidFilter('');
-                    setStartDate(null); setEndDate(null); setDataMessage('');
-                    setConnectorType('Combined');
-                  }}
-                  className="px-3 py-1.5 text-xs rounded border border-gray-300 text-gray-700 hover:bg-gray-50">
-                  Clear All Filters
-                </button>
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Left Sidebar - Filters */}
+      <aside className={`w-80 bg-white border-r border-gray-200 shadow-lg fixed left-0 top-0 h-screen z-50 transition-transform duration-300 ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-80'
+      }`}>
+        {/* Sidebar Header */}
+        <div className="bg-white px-5 py-4 border-b border-gray-200">
+          <div className="flex items-center gap-3 mb-2">
+            <Image 
+              src="/logo_red.jpeg" 
+              alt="Zeon Logo" 
+              width={40}
+              height={40}
+              className="object-contain rounded-lg shadow-sm"
+              priority
+            />
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 tracking-tight">Zeon Analytics</h1>
+              <p className="text-xs text-gray-500">Filter & Analyze</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters Container */}
+        <div className="px-5 py-4 space-y-4">
+          
+          {/* Date Range Picker */}
+          <div className="relative">
+            <label className="block text-xs font-bold text-gray-900 mb-2 uppercase tracking-wide flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-emerald-600" />
+              Date Range
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                readOnly
+                value={
+                  startDate && endDate && endDate.toDateString() !== startDate.toDateString()
+                    ? `${formatDisplay(startDate)} – ${formatDisplay(endDate)}`
+                    : startDate ? formatDisplay(startDate) : ''
+                }
+                placeholder="Click to select date"
+                onClick={() => setShowCalendar(v => !v)}
+                className="w-full px-3 py-2.5 text-sm bg-white border border-gray-300 rounded-lg cursor-pointer focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-gray-900 placeholder-gray-400 shadow-sm hover:border-emerald-400 transition-all"
+              />
+              <Calendar className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
+            </div>
+            {showCalendar && (
+              <div className="absolute top-full mt-2 left-0 z-50 border border-gray-200 rounded-lg p-5 bg-white shadow-xl">
+                <DateRangePicker
+                  startDate={startDate} endDate={endDate}
+                  onChange={(s, e) => { setStartDate(s); setEndDate(e); }}
+                />
+                <div className="flex justify-end mt-4">
+                  <button onClick={() => setShowCalendar(false)}
+                    className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg font-semibold shadow-md hover:shadow-lg transition-all">
+                    Done
+                  </button>
+                </div>
+              </div>
+            )}
+            <p className="mt-1.5 text-xs text-gray-500">Select date or date range</p>
+          </div>
+
+          {/* OEM Filter */}
+          <div className="relative">
+            <label className="block text-xs font-bold text-gray-900 mb-2 uppercase tracking-wide">Filter by OEM</label>
+            <MultiSelectDropdown
+              label=""
+              placeholder={!startDate ? "Select date first" : !analytics ? "Fetch data first" : `${oems.length} available`}
+              hint={!startDate ? "Select a date range first" : !analytics ? "Click FETCH DATA first" : `Select multiple OEM manufacturers`}
+              items={oems}
+              selectedValues={oemFilter}
+              loading={loadingFilters}
+              disabled={!startDate || !analytics || stationFilter.length > 0 || cpidFilter.length > 0}
+              onSelect={(v) => { setOemFilter([...oemFilter, v]); }}
+              onRemove={(v) => { setOemFilter(oemFilter.filter(item => item !== v)); }}
+              onClear={() => setOemFilter([])}
+            />
+            {!startDate ? (
+              <p className="mt-1.5 text-xs text-orange-600 font-medium">⚠ Select date first</p>
+            ) : !analytics ? (
+              <p className="mt-1.5 text-xs text-blue-600 font-medium">ℹ️ Fetch data first</p>
+            ) : null}
+          </div>
+
+          {/* CPID Filter */}
+          <div className="relative">
+            <label className="block text-xs font-bold text-gray-900 mb-2 uppercase tracking-wide">Filter by CPID</label>
+            <MultiSelectDropdown
+              label=""
+              placeholder={!startDate ? "Select date first" : !analytics ? "Fetch data first" : cpidDisplayStrings.length > 0 ? `${cpidDisplayStrings.length} available` : "Type a CPID"}
+              hint={!startDate ? "Select a date range first" : !analytics ? "Click FETCH DATA first" : cpidDisplayStrings.length > 0 ? `Select multiple CPIDs` : "Enter a specific CPID"}
+              items={cpidDisplayStrings}
+              selectedValues={cpidFilter}
+              loading={loadingFilters}
+              disabled={!startDate || !analytics || stationFilter.length > 0 || oemFilter.length > 0}
+              onSelect={(displayValue) => { 
+                setCpidFilter([...cpidFilter, displayValue]); 
+              }}
+              onRemove={(displayValue) => { 
+                setCpidFilter(cpidFilter.filter(item => item !== displayValue)); 
+              }}
+              onClear={() => setCpidFilter([])}
+            />
+            {!startDate ? (
+              <p className="mt-1.5 text-xs text-orange-600 font-medium">⚠ Select date first</p>
+            ) : !analytics ? (
+              <p className="mt-1.5 text-xs text-blue-600 font-medium">ℹ️ Fetch data first</p>
+            ) : null}
+          </div>
+
+          {/* Station Filter */}
+          <div className="relative">
+            <label className="block text-xs font-bold text-gray-900 mb-2 uppercase tracking-wide">Filter by Station</label>
+            <MultiSelectDropdown
+              label=""
+              placeholder={!startDate ? "Select date first" : !analytics ? "Fetch data first" : `${stations.length} available`}
+              hint={!startDate ? "Select a date range first" : !analytics ? "Click FETCH DATA first" : `Select multiple stations or type to filter`}
+              items={stations}
+              selectedValues={stationFilter}
+              loading={loadingFilters}
+              disabled={!startDate || !analytics || oemFilter.length > 0 || cpidFilter.length > 0}
+              onSelect={(v) => { setStationFilter([...stationFilter, v]); }}
+              onRemove={(v) => { setStationFilter(stationFilter.filter(item => item !== v)); }}
+              onClear={() => setStationFilter([])}
+            />
+            {!startDate ? (
+              <p className="mt-1.5 text-xs text-orange-600 font-medium">⚠ Select date first</p>
+            ) : !analytics ? (
+              <p className="mt-1.5 text-xs text-blue-600 font-medium">ℹ️ Fetch data first</p>
+            ) : null}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-2.5 pt-2">
+            <button
+              onClick={() => fetchData()}
+              disabled={!startDate || fetchingData}
+              className="w-full px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold uppercase tracking-wide transition-all shadow-md hover:shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed disabled:shadow-none duration-300"
+            >
+              {fetchingData ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Fetching...
+                </span>
+              ) : (
+                'FETCH DATA'
               )}
-              <span className="text-sm text-gray-500">{user?.email}</span>
+            </button>
+            
+            {analytics && (
+              <button
+                onClick={() => {
+                  setStationFilter([]); setOemFilter([]); setCpidFilter([]);
+                  setStartDate(null); setEndDate(null); setDataMessage('');
+                  setConnectorType('Combined'); setAnalytics(null);
+                }}
+                className="w-full px-5 py-3 text-sm font-semibold bg-red-50 text-red-600 hover:bg-red-100 border-2 border-red-200 rounded-lg transition-all shadow-sm hover:shadow-md duration-300"
+              >
+                <span className="inline-block transition-transform duration-300">✕</span> Clear All Filters
+              </button>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      {/* Sidebar Toggle Button */}
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className={`fixed top-20 z-50 bg-white hover:bg-gray-100 border border-gray-300 rounded-r-lg p-2 shadow-lg transition-all duration-300 ${
+          sidebarOpen ? 'left-80' : 'left-0'
+        }`}
+        title={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+      >
+        {sidebarOpen ? (
+          <ChevronLeft className="w-5 h-5 text-gray-700" />
+        ) : (
+          <ChevronRight className="w-5 h-5 text-gray-700" />
+        )}
+      </button>
+
+      {/* Main Content Area */}
+      <div className={`flex-1 transition-all duration-300 overflow-x-hidden ${
+        sidebarOpen ? 'ml-80' : 'ml-0'
+      }`}>
+        {/* Top Navigation Bar */}
+        <nav className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
+          <div className="px-6 py-4 flex justify-between items-center">
+            <div className="flex items-center gap-6">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Dashboard</h2>
+                <p className="text-xs text-gray-500">Real-time analytics and insights</p>
+              </div>
+              
+              {/* Connector Type Toggle */}
+              <div className="flex items-center bg-gray-100 rounded-lg p-1 border border-gray-300">
+                <button
+                  onClick={() => handleConnectorTypeChange('AC')}
+                  className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-300 ${
+                    connectorType === 'AC'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-gray-700 hover:text-emerald-600'
+                  }`}
+                >
+                  AC
+                </button>
+                <button
+                  onClick={() => handleConnectorTypeChange('Combined')}
+                  className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-300 ${
+                    connectorType === 'Combined'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-gray-700 hover:text-emerald-600'
+                  }`}
+                >
+                  Combined
+                </button>
+                <button
+                  onClick={() => handleConnectorTypeChange('DC')}
+                  className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-300 ${
+                    connectorType === 'DC'
+                      ? 'bg-emerald-600 text-white shadow-md'
+                      : 'text-gray-700 hover:text-emerald-600'
+                  }`}
+                >
+                  DC
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-600 bg-gray-100 px-4 py-2 rounded-lg border border-gray-200">{user?.email}</span>
               <button onClick={handleLogout}
-                className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
+                className="px-5 py-2.5 text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 rounded-lg transition-all shadow-sm hover:shadow-md duration-300">
                 Logout
               </button>
             </div>
           </div>
+        </nav>
 
-          {/* Filter Row */}
-          <div className="grid grid-cols-7 gap-3 items-start">
-            {/* Date Range Picker - First */}
-            <div className="relative col-span-2">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Select Date or Date Range</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  readOnly
-                  value={
-                    startDate && endDate && endDate.toDateString() !== startDate.toDateString()
-                      ? `${formatDisplay(startDate)} – ${formatDisplay(endDate)}`
-                      : startDate ? formatDisplay(startDate) : ''
-                  }
-                  placeholder="Click to select date"
-                  onClick={() => setShowCalendar(v => !v)}
-                  className="w-full px-3 py-1.5 pr-8 text-xs border border-gray-300 rounded cursor-pointer focus:ring-2 focus:ring-blue-500 bg-white"
-                />
-                <Calendar className="absolute right-2 top-1.5 w-3 h-3 text-gray-400 pointer-events-none" />
-              </div>
-              {showCalendar && (
-                <div className="absolute top-full mt-1 left-0 z-50 border border-gray-200 rounded-xl p-4 bg-white shadow-2xl">
-                  <DateRangePicker
-                    startDate={startDate} endDate={endDate}
-                    onChange={(s, e) => { setStartDate(s); setEndDate(e); }}
-                  />
-                  <div className="flex justify-end mt-3">
-                    <button onClick={() => setShowCalendar(false)}
-                      className="px-4 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 font-medium">
-                      Done
-                    </button>
-                  </div>
-                </div>
-              )}
-              <p className="mt-0.5 text-[10px] text-gray-500">Select date range</p>
-            </div>
-
-            {/* OEM Filter - Second */}
-            <div className="relative">
-              <label className="block text-xs font-medium text-gray-700 mb-1">OR Filter by OEM (Optional)</label>
-              <SearchableDropdown
-                label=""
-                placeholder={`${oems.length} available`}
-                hint={`Click to view all ${oems.length} OEM manufacturers`}
-                items={oems}
-                value={oemFilter}
-                loading={loadingFilters}
-                disabled={!!stationFilter || !!cpidFilter}
-                onSelect={(v) => { setOemFilter(v); setStationFilter(''); setCpidFilter(''); }}
-                onClear={() => setOemFilter('')}
-              />
-            </div>
-
-            {/* CPID Filter - Third */}
-            <div className="relative">
-              <label className="block text-xs font-medium text-gray-700 mb-1">OR Filter by CPID (Optional)</label>
-              <SearchableDropdown
-                label=""
-                placeholder={cpids.length > 0 ? `${cpids.length} available` : "Type a CPID"}
-                hint={cpids.length > 0 ? `Select from ${cpids.length} CPIDs` : "Enter a specific CPID"}
-                items={cpids}
-                value={cpidFilter}
-                loading={loadingFilters}
-                disabled={!!stationFilter || !!oemFilter}
-                onSelect={(v) => { setCpidFilter(v); setStationFilter(''); setOemFilter(''); }}
-                onClear={() => setCpidFilter('')}
-              />
-            </div>
-
-            {/* Station Filter - Fourth */}
-            <div className="relative">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Filter by Station (Optional)</label>
-              <SearchableDropdown
-                label=""
-                placeholder={`${stations.length} available`}
-                hint={`Click to view all ${stations.length} stations or type to filter`}
-                items={stations}
-                value={stationFilter}
-                loading={loadingFilters}
-                disabled={!!oemFilter || !!cpidFilter}
-                onSelect={(v) => { setStationFilter(v); setOemFilter(''); setCpidFilter(''); }}
-                onClear={() => setStationFilter('')}
-              />
-            </div>
-
-            {/* Connector Type - Combined on top, AC/DC below */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Connector</label>
-              <div className="flex flex-col gap-1">
-                {/* Combined button - full width */}
-                <button onClick={() => setConnectorType('Combined')}
-                  className={`px-3 py-2 rounded text-xs font-medium transition-colors
-                    ${connectorType === 'Combined'
-                      ? 'bg-emerald-600 text-white shadow'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                  Combined
-                </button>
-                {/* AC and DC buttons - side by side */}
-                <div className="flex gap-1">
-                  {['AC', 'DC'].map(t => (
-                    <button key={t} onClick={() => setConnectorType(t)}
-                      className={`flex-1 px-3 py-2 rounded text-xs font-medium transition-colors
-                        ${connectorType === t
-                          ? 'bg-emerald-600 text-white shadow'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                      {t}
-                    </button>
-                  ))}
-                </div>
+        {/* Content Container */}
+        <div className="p-6">
+          {/* Data Message */}
+          {dataMessage && (
+            <div className="mb-6">
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-lg text-sm">
+                {dataMessage}
               </div>
             </div>
+          )}
 
-            {/* Fetch Data Button */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">&nbsp;</label>
-              <button
-                onClick={() => fetchData()}
-                disabled={!startDate || fetchingData}
-                className="w-full px-4 py-1.5 bg-emerald-600 text-white rounded text-xs font-semibold hover:bg-emerald-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-              >
-                {fetchingData ? 'Fetching…' : 'Fetch Data'}
-              </button>
+          {/* Loading */}
+          {fetchingData && (
+            <div className="flex items-center justify-center py-16">
+              <div className="flex flex-col items-center gap-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
+                <p className="text-gray-600">Fetching analytics…</p>
+              </div>
             </div>
-          </div>
-        </div>
-      </nav>
+          )}
 
-      {/* Data Message */}
-      {dataMessage && (
-        <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-lg text-sm">
-            {dataMessage}
-          </div>
+          {/* Dashboard */}
+          {!fetchingData && analytics && (
+            <AnalyticsDashboard
+              analytics={analytics}
+              connectorType={connectorType}
+              onConnectorTypeChange={handleConnectorTypeChange}
+            />
+          )}
         </div>
-      )}
-
-      {/* Loading */}
-      {fetchingData && (
-        <div className="flex items-center justify-center py-16">
-          <div className="flex flex-col items-center gap-4">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
-            <p className="text-gray-600">Fetching analytics…</p>
-          </div>
-        </div>
-      )}
-
-      {/* Dashboard */}
-      {!fetchingData && analytics && (
-        <>
-          <AnalyticsDashboard
-            analytics={analytics}
-            connectorType={connectorType}
-            onConnectorTypeChange={handleConnectorTypeChange}
-          />
-        </>
-      )}
+      </div>
     </div>
   );
 }

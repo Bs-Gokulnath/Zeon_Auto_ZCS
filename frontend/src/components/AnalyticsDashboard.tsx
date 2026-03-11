@@ -184,45 +184,28 @@ const DashboardCard: React.FC<{
 
 
 const renderPieLabel = (props: any) => {
-  const { cx, cy, midAngle, innerRadius, outerRadius, percentage } = props;
+  const { cx, cy, midAngle, innerRadius, outerRadius, percentage, name } = props;
   
   // Don't show label if percentage is too small
-  if (percentage < 2) return null;
+  if (percentage < 3) return null;
   
   const RADIAN = Math.PI / 180;
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const radius = outerRadius + 25;
   const x = cx + radius * Math.cos(-midAngle * RADIAN);
   const y = cy + radius * Math.sin(-midAngle * RADIAN);
   
   return (
-    <g>
-      {/* White background for better contrast */}
-      <text 
-        x={x} 
-        y={y} 
-        textAnchor="middle"
-        dominantBaseline="central" 
-        fontSize="13" 
-        fontWeight="700"
-        stroke="white"
-        strokeWidth="3"
-        fill="white"
-      >
-        {`${percentage}%`}
-      </text>
-      {/* Black text on top */}
-      <text 
-        x={x} 
-        y={y} 
-        fill="#000000"
-        textAnchor="middle"
-        dominantBaseline="central" 
-        fontSize="13" 
-        fontWeight="700"
-      >
-        {`${percentage}%`}
-      </text>
-    </g>
+    <text 
+      x={x} 
+      y={y} 
+      fill="#374151"
+      textAnchor={x > cx ? 'start' : 'end'}
+      dominantBaseline="central" 
+      fontSize="12" 
+      fontWeight="600"
+    >
+      {`${percentage}%`}
+    </text>
   );
 };
 
@@ -408,18 +391,18 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
           <div>
             <DashboardCard title="Charging Share by OEM" icon={TrendingDown} borderColorClass="border-red-500">
               <div className="h-full min-h-[380px] flex flex-col items-center justify-center">
-                <ResponsiveContainer width="100%" height={260}>
+                <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
                     <Pie 
                       data={sharePie} 
                       cx="50%" 
                       cy="50%" 
-                      innerRadius={50} 
-                      outerRadius={85}
-                      paddingAngle={3} 
+                      innerRadius={60} 
+                      outerRadius={90}
+                      paddingAngle={2} 
                       dataKey="value" 
                       label={renderPieLabel}
-                      labelLine={false}
+                      labelLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
                       strokeWidth={2}
                       stroke="#ffffff"
                     >
@@ -559,18 +542,18 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
           <div className="h-full min-h-[380px] flex flex-col items-center justify-center">
             {errorData.length > 0 ? (
               <>
-                <ResponsiveContainer width="100%" height={260}>
+                <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
                     <Pie 
                       data={errorData} 
                       cx="50%" 
                       cy="50%" 
-                      innerRadius={50} 
-                      outerRadius={85}
-                      paddingAngle={3} 
+                      innerRadius={60} 
+                      outerRadius={90}
+                      paddingAngle={2} 
                       dataKey="value" 
                       label={renderPieLabel}
-                      labelLine={false}
+                      labelLine={{ stroke: '#94a3b8', strokeWidth: 1.5 }}
                       strokeWidth={2}
                       stroke="#ffffff"
                     >

@@ -13,10 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Zeon",
+  title: "Zeon Analytics",
   description: "Build By Zeon",
   icons: {
-    icon: '/favicon.ico',
+    icon: [
+      { url: '/logo_red.jpeg', type: 'image/jpeg' },
+      { url: '/favicon.ico', sizes: 'any' }
+    ],
+    shortcut: '/logo_red.jpeg',
     apple: '/logo_red.jpeg',
   },
 };
@@ -29,8 +33,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="icon" href="/logo_red.jpeg" type="image/jpeg" />
+        <link rel="shortcut icon" href="/logo_red.jpeg" type="image/jpeg" />
         <link rel="apple-touch-icon" href="/logo_red.jpeg" />
       </head>
       <body

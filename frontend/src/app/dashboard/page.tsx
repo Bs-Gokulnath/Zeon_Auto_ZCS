@@ -7,7 +7,7 @@ import { Calendar, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { dashboardFetch } from '@/src/lib/api';
 import AnalyticsDashboard, { Analytics } from '@/src/components/AnalyticsDashboard';
 
-interface User { id: string; email: string; }
+interface User { id: string; email: string; role?: string; }
 
 // ─── Multi-Select Dropdown ────────────────────────────────────────────────────
 
@@ -120,7 +120,7 @@ function DateRangePicker({ startDate, endDate, onChange }: {
   startDate: Date | null; endDate: Date | null;
   onChange: (s: Date | null, e: Date | null) => void;
 }) {
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 1));
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState<Date | null>(null);
 
@@ -135,30 +135,40 @@ function DateRangePicker({ startDate, endDate, onChange }: {
   const inRange = (d: Date) =>
     !!startDate && !!endDate && d >= startDate && d <= endDate;
 
+  const isDisabled = (d: Date) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const checkDate = new Date(d);
+    checkDate.setHours(0, 0, 0, 0);
+    return checkDate >= today;
+  };
+
   const renderMonth = (offset: number) => {
     const mo = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset);
     const first = new Date(mo.getFullYear(), mo.getMonth(), 1).getDay();
     const last  = new Date(mo.getFullYear(), mo.getMonth() + 1, 0).getDate();
     const cells = [];
-    for (let i = 0; i < first; i++) cells.push(<div key={`e${i}`} className="h-9 w-9" />);
+    for (let i = 0; i < first; i++) cells.push(<div key={`e${i}`} className="h-8 w-8" />);
     for (let d = 1; d <= last; d++) {
       const date = new Date(mo.getFullYear(), mo.getMonth(), d);
+      const disabled = isDisabled(date);
       const sel  = isSame(date, startDate) || isSame(date, endDate);
       const range = inRange(date) && !sel;
       cells.push(
         <div key={d}
-          onMouseDown={() => { setIsDragging(true); setDragStart(date); onChange(date, null); }}
-          onMouseEnter={() => {
+          onMouseDown={disabled ? undefined : () => { setIsDragging(true); setDragStart(date); onChange(date, null); }}
+          onMouseEnter={disabled ? undefined : () => {
             if (isDragging && dragStart) {
               const [s, e] = date >= dragStart ? [dragStart, date] : [date, dragStart];
               onChange(s, e);
             }
           }}
-          onMouseUp={() => setIsDragging(false)}
-          className={`h-10 w-10 flex items-center justify-center text-sm cursor-pointer select-none rounded-lg transition-all duration-200
-            ${sel   ? 'bg-emerald-600 text-white font-bold shadow-lg scale-110'   : ''}
-            ${range ? 'bg-emerald-100 text-emerald-900 font-semibold' : ''}
-            ${!sel && !range ? 'hover:bg-gray-100 text-gray-700 hover:scale-105 font-medium' : ''}
+          onMouseUp={disabled ? undefined : () => setIsDragging(false)}
+          className={`h-8 w-8 flex items-center justify-center text-xs select-none rounded-md transition-all duration-200
+            ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'cursor-pointer'}
+            ${!disabled && sel   ? 'bg-emerald-600 text-white font-bold shadow-md scale-105'   : ''}
+            ${!disabled && range ? 'bg-emerald-100 text-emerald-900 font-semibold' : ''}
+            ${!disabled && !sel && !range ? 'hover:bg-gray-100 text-gray-700 hover:scale-105 font-medium' : ''}
           `}
         >{d}</div>
       );
@@ -166,36 +176,36 @@ function DateRangePicker({ startDate, endDate, onChange }: {
     const name = mo.toLocaleString('en-US', { month: 'long', year: 'numeric' });
     return (
       <div>
-        <div className="text-center font-bold text-emerald-600 mb-4 text-lg">{name}</div>
-        <div className="grid grid-cols-7 gap-2 mb-2">
+        <div className="text-center font-bold text-emerald-600 mb-3 text-base">{name}</div>
+        <div className="grid grid-cols-7 gap-1.5 mb-2">
           {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d =>
-            <div key={d} className="h-8 w-10 flex items-center justify-center text-xs text-gray-600 font-bold uppercase">{d}</div>
+            <div key={d} className="h-6 w-8 flex items-center justify-center text-[10px] text-gray-600 font-bold uppercase">{d}</div>
           )}
         </div>
-        <div className="grid grid-cols-7 gap-2">{cells}</div>
+        <div className="grid grid-cols-7 gap-1.5">{cells}</div>
       </div>
     );
   };
 
   return (
     <div onMouseUp={() => setIsDragging(false)}>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3">
         <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-          className="px-4 py-2 text-sm rounded-lg bg-white hover:bg-gray-50 text-gray-700 font-semibold border border-gray-200 transition-all shadow-sm hover:shadow-md">← Prev</button>
+          className="px-3 py-1.5 text-xs rounded-md bg-white hover:bg-gray-50 text-gray-700 font-semibold border border-gray-200 transition-all shadow-sm hover:shadow-md">← Prev</button>
         <button onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-          className="px-4 py-2 text-sm rounded-lg bg-white hover:bg-gray-50 text-gray-700 font-semibold border border-gray-200 transition-all shadow-sm hover:shadow-md">Next →</button>
+          className="px-3 py-1.5 text-xs rounded-md bg-white hover:bg-gray-50 text-gray-700 font-semibold border border-gray-200 transition-all shadow-sm hover:shadow-md">Next →</button>
       </div>
       <div>
         {renderMonth(0)}
       </div>
       {(startDate || endDate) && (
-        <div className="mt-4 flex items-center gap-2 text-sm">
-          {startDate && <span className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-semibold shadow-md">{formatDisplay(startDate)}</span>}
+        <div className="mt-3 flex items-center gap-2 text-xs">
+          {startDate && <span className="px-2 py-1 bg-emerald-600 text-white rounded-md font-semibold shadow-sm">{formatDisplay(startDate)}</span>}
           {endDate && endDate.toDateString() !== startDate?.toDateString() && (
             <><span className="text-gray-400 font-bold">→</span>
-            <span className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-semibold shadow-md">{formatDisplay(endDate)}</span></>
+            <span className="px-2 py-1 bg-emerald-600 text-white rounded-md font-semibold shadow-sm">{formatDisplay(endDate)}</span></>
           )}
-          <button onClick={() => onChange(null, null)} className="ml-2 px-3 py-1 text-xs bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-lg font-semibold transition-colors">Clear</button>
+          <button onClick={() => onChange(null, null)} className="ml-2 px-2 py-0.5 text-[10px] bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-md font-semibold transition-colors">Clear</button>
         </div>
       )}
     </div>
@@ -597,7 +607,7 @@ export default function DashboardPage() {
           <div className="px-6 py-4 flex justify-between items-center">
             <div className="flex items-center gap-6">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Dashboard</h2>
+                <h2 className="text-lg font-bold text-gray-900">Dashboard Analytics</h2>
                 <p className="text-xs text-gray-500">Real-time analytics and insights</p>
               </div>
               
@@ -637,6 +647,21 @@ export default function DashboardPage() {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-gray-600 bg-gray-100 px-4 py-2 rounded-lg border border-gray-200">{user?.email}</span>
+              
+              {/* Admin Panel Button - Only for Admin Users */}
+              {user?.role === 'admin' && (
+                <button 
+                  onClick={() => router.push('/admin-panel')}
+                  className="px-4 py-2 text-sm font-semibold bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all shadow-md hover:shadow-lg duration-300 flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  Admin Panel
+                </button>
+              )}
+              
               <button onClick={handleLogout}
                 className="px-5 py-2.5 text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300 rounded-lg transition-all shadow-sm hover:shadow-md duration-300">
                 Logout

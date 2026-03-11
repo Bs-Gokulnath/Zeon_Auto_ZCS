@@ -1,221 +1,54 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function SignupPage() {
   const router = useRouter();
-  const [step, setStep] = useState<'email' | 'otp'>('email');
-  const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
-  // Check if user is already logged in
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const loginDate = localStorage.getItem('loginDate');
-    
-    if (token) {
-      // Check if it's a new day
-      const currentDate = new Date().toDateString();
-      if (loginDate && loginDate !== currentDate) {
-        // New day detected, clear session
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        localStorage.removeItem('loginDate');
-      } else {
-        // Same day, redirect to dashboard
-        router.push('/dashboard');
-      }
-    }
+    // Redirect to login after 3 seconds
+    const timer = setTimeout(() => {
+      router.push('/login');
+    }, 3000);
+
+    return () => clearTimeout(timer);
   }, [router]);
-
-  const handleSendOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setLoading(true);
-
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup/send-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to send OTP');
-      }
-
-      setSuccess('OTP sent to your email!');
-      setStep('otp');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setLoading(true);
-
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup/verify-otp`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, otp }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to verify OTP');
-      }
-
-      // Store token
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      // Store login date for daily logout
-      localStorage.setItem('loginDate', new Date().toDateString());
-
-      setSuccess('Signup successful! Redirecting to dashboard...');
-      
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 1500);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-white flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2 text-gray-900">
-            Welcome to <span className="text-emerald-600">Zeon</span>
-          </h1>
-          <p className="text-gray-600">Create your account</p>
-        </div>
-
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-          {step === 'email' ? (
-            <form onSubmit={handleSendOTP} className="space-y-6">
-              <div>
-                <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  id="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all bg-white text-gray-900"
-                  placeholder="you@example.com"
-                  disabled={loading}
-                />
-              </div>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                  {error}
-                </div>
-              )}
-
-              {success && (
-                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm">
-                  {success}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
-              >
-                {loading ? 'Sending...' : 'Send OTP'}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleVerifyOTP} className="space-y-6">
-              <div>
-                <label htmlFor="otp" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Enter OTP
-                </label>
-                <input
-                  type="text"
-                  id="otp"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  required
-                  maxLength={6}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all bg-white text-gray-900 text-center text-2xl tracking-widest font-mono"
-                  placeholder="000000"
-                  disabled={loading}
-                />
-                <p className="text-sm text-gray-500 mt-2">
-                  OTP sent to {email}
-                </p>
-              </div>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                  {error}
-                </div>
-              )}
-
-              {success && (
-                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm">
-                  {success}
-                </div>
-              )}
-
-              <div className="space-y-3">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
-                >
-                  {loading ? 'Verifying...' : 'Verify & Sign Up'}
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => setStep('email')}
-                  className="w-full text-gray-600 py-2 text-sm hover:text-gray-900 transition-colors"
-                  disabled={loading}
-                >
-                  Change Email
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="text-center mt-6">
-          <p className="text-gray-600">
-            Already have an account?{' '}
-            <a href="/login" className="text-emerald-600 font-semibold hover:text-emerald-700 transition-colors">
-              Login
-            </a>
+      <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100">
+        <div className="mb-6">
+          <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-12 h-12 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-3">Signup Disabled</h1>
+          <p className="text-gray-600 text-lg mb-6">
+            Public registration is not available. Only administrators can add new users.
           </p>
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-5 mb-6">
+          <p className="text-sm font-semibold text-blue-900 mb-2">📧 Need Access?</p>
+          <p className="text-sm text-blue-800">
+            Contact your administrator:
+          </p>
+          <div className="mt-3 space-y-1">
+            <p className="text-sm font-medium text-blue-900">madhan@zeoncharging.com</p>
+            <p className="text-sm font-medium text-blue-900">techcrivo@gmail.com</p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <button
+            onClick={() => router.push('/login')}
+            className="w-full px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg"
+          >
+            Go to Login
+          </button>
+          <p className="text-xs text-gray-500">Redirecting automatically in 3 seconds...</p>
         </div>
       </div>
     </div>

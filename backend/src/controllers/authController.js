@@ -66,7 +66,7 @@ const verifySignupOTP = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, email: user.email },
+      { userId: user._id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -76,7 +76,8 @@ const verifySignupOTP = async (req, res) => {
       token,
       user: {
         id: user._id,
-        email: user.email
+        email: user.email,
+        role: user.role
       }
     });
   } catch (error) {
@@ -97,7 +98,12 @@ const sendLoginOTP = async (req, res) => {
     // Check if user exists
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ message: 'User not found. Please sign up first.' });
+      return res.status(404).json({ message: 'User not found. Please contact administrator for access.' });
+    }
+
+    // Check if user is active
+    if (!user.isActive) {
+      return res.status(403).json({ message: 'Your account has been deactivated. Please contact administrator.' });
     }
 
     // Generate and store OTP
@@ -143,9 +149,14 @@ const verifyLoginOTP = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Check if user is active
+    if (!user.isActive) {
+      return res.status(403).json({ message: 'Your account has been deactivated. Please contact administrator.' });
+    }
+
     // Generate JWT token
     const token = jwt.sign(
-      { userId: user._id, email: user.email },
+      { userId: user._id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
@@ -155,7 +166,8 @@ const verifyLoginOTP = async (req, res) => {
       token,
       user: {
         id: user._id,
-        email: user.email
+        email: user.email,
+        role: user.role
       }
     });
   } catch (error) {

@@ -211,9 +211,12 @@ export default function LoginPage() {
         <div className="text-center mt-6">
           <p className="text-gray-600">
             Don't have an account?{' '}
-            <a href="/signup" className="text-emerald-600 font-semibold hover:text-emerald-700 transition-colors">
+            <button 
+              onClick={() => alert('Public signup is disabled. Please contact administrators:\n\n')}
+              className="text-emerald-600 font-semibold hover:text-emerald-700 transition-colors underline"
+            >
               Sign up
-            </a>
+            </button>
           </p>
         </div>
       </div>

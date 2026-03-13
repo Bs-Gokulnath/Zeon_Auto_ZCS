@@ -16,12 +16,9 @@ export const metadata: Metadata = {
   title: "Zeon Analytics",
   description: "Build By Zeon",
   icons: {
-    icon: [
-      { url: '/logo_red.jpeg', type: 'image/jpeg' },
-      { url: '/favicon.ico', sizes: 'any' }
-    ],
-    shortcut: '/logo_red.jpeg',
-    apple: '/logo_red.jpeg',
+    icon: '/logo_red.jpeg?v=2',
+    shortcut: '/logo_red.jpeg?v=2',
+    apple: '/logo_red.jpeg?v=2',
   },
 };
 
@@ -33,9 +30,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="icon" href="/logo_red.jpeg" type="image/jpeg" />
-        <link rel="shortcut icon" href="/logo_red.jpeg" type="image/jpeg" />
-        <link rel="apple-touch-icon" href="/logo_red.jpeg" />
+        <link rel="icon" href="/logo_red.jpeg?v=2" type="image/jpeg" />
+        <link rel="shortcut icon" href="/logo_red.jpeg?v=2" type="image/jpeg" />
+        <link rel="apple-touch-icon" href="/logo_red.jpeg?v=2" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

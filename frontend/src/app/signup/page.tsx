@@ -16,7 +16,7 @@ export default function SignupPage() {
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-white flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 to-white flex items-center justify-center px-4">
       <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border border-gray-100">
         <div className="mb-6">
           <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -44,7 +44,7 @@ export default function SignupPage() {
         <div className="space-y-3">
           <button
             onClick={() => router.push('/login')}
-            className="w-full px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg"
+            className="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg"
           >
             Go to Login
           </button>

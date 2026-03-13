@@ -147,7 +147,7 @@ export default function AdminPanel() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
       </div>
     );
   }
@@ -180,7 +180,7 @@ export default function AdminPanel() {
           </div>
         )}
         {success && (
-          <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+          <div className="mb-4 bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-lg">
             {success}
           </div>
         )}
@@ -196,7 +196,7 @@ export default function AdminPanel() {
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
                 placeholder="user@example.com"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 disabled={adding}
               />
             </div>
@@ -205,7 +205,7 @@ export default function AdminPanel() {
               <select
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 disabled={adding}
               >
                 <option value="user">User</option>
@@ -215,7 +215,7 @@ export default function AdminPanel() {
             <button
               type="submit"
               disabled={adding}
-              className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               {adding ? 'Adding...' : 'Add User'}
             </button>
@@ -252,8 +252,8 @@ export default function AdminPanel() {
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
                           user.role === 'admin' 
-                            ? 'bg-purple-100 text-purple-800' 
-                            : 'bg-blue-100 text-blue-800'
+                            ? 'bg-red-100 text-red-800' 
+                            : 'bg-rose-100 text-rose-800'
                         }`}>
                           {user.role === 'admin' ? '🛡️ Admin' : '👤 User'}
                         </span>
@@ -261,7 +261,7 @@ export default function AdminPanel() {
                       <td className="px-6 py-4">
                         <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
                           user.isActive 
-                            ? 'bg-green-100 text-green-800' 
+                            ? 'bg-rose-100 text-rose-800' 
                             : 'bg-red-100 text-red-800'
                         }`}>
                           {user.isActive ? '✓ Active' : '✗ Inactive'}

@@ -44,11 +44,11 @@ function MultiSelectDropdown({
       {selectedValues.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-2">
           {selectedValues.map((item, i) => (
-            <div key={i} className="inline-flex items-center gap-1.5 bg-emerald-100 text-emerald-800 px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-300 hover:bg-emerald-200 transition-all">
+            <div key={i} className="inline-flex items-center gap-1.5 bg-red-100 text-red-800 px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-300 hover:bg-red-200 transition-all">
               <span className="max-w-[150px] truncate">{item}</span>
               <button 
                 onClick={() => onRemove(item)}
-                className="hover:text-emerald-900 transition-colors"
+                className="hover:text-red-900 transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -73,11 +73,11 @@ function MultiSelectDropdown({
           onFocus={() => setOpen(true)}
           placeholder={loading ? 'Loading...' : selectedValues.length > 0 ? `${selectedValues.length} selected - Add more...` : placeholder}
           disabled={disabled || loading}
-          className="w-full px-4 py-2.5 pr-9 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-400 text-sm shadow-sm hover:border-gray-400 transition-all"
+          className="w-full px-4 py-2.5 pr-9 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-red-500 focus:border-red-500 disabled:bg-gray-50 disabled:text-gray-400 text-sm shadow-sm hover:border-gray-400 transition-all"
         />
         {input && !disabled && (
           <button onClick={() => { setInput(''); }}
-            className="absolute right-2.5 top-2.5 text-gray-400 hover:text-emerald-600 transition-colors">
+            className="absolute right-2.5 top-2.5 text-gray-400 hover:text-red-600 transition-colors">
             <X className="w-4 h-4" />
           </button>
         )}
@@ -92,12 +92,12 @@ function MultiSelectDropdown({
               </div>
               {filtered.slice(0, 100).map((item, i) => (
                 <button key={i} onClick={() => { onSelect(item); setInput(''); }}
-                  className="w-full text-left px-4 py-2.5 hover:bg-emerald-50 text-sm font-medium text-gray-700 hover:text-emerald-600 border-b border-gray-100 last:border-0 truncate transition-all">
+                  className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-sm font-medium text-gray-700 hover:text-red-600 border-b border-gray-100 last:border-0 truncate transition-all">
                   {item}
                 </button>
               ))}
               {filtered.length > 100 && (
-                <div className="px-4 py-2 text-[10px] font-semibold text-emerald-600 bg-emerald-50 border-t border-emerald-100">
+                <div className="px-4 py-2 text-[10px] font-semibold text-red-600 bg-red-50 border-t border-red-100">
                   Showing 100 of {filtered.length} — type to narrow down
                 </div>
               )}
@@ -166,8 +166,8 @@ function DateRangePicker({ startDate, endDate, onChange }: {
           onMouseUp={disabled ? undefined : () => setIsDragging(false)}
           className={`h-8 w-8 flex items-center justify-center text-xs select-none rounded-md transition-all duration-200
             ${disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'cursor-pointer'}
-            ${!disabled && sel   ? 'bg-emerald-600 text-white font-bold shadow-md scale-105'   : ''}
-            ${!disabled && range ? 'bg-emerald-100 text-emerald-900 font-semibold' : ''}
+            ${!disabled && sel   ? 'bg-red-600 text-white font-bold shadow-md scale-105'   : ''}
+            ${!disabled && range ? 'bg-red-100 text-red-900 font-semibold' : ''}
             ${!disabled && !sel && !range ? 'hover:bg-gray-100 text-gray-700 hover:scale-105 font-medium' : ''}
           `}
         >{d}</div>
@@ -176,7 +176,7 @@ function DateRangePicker({ startDate, endDate, onChange }: {
     const name = mo.toLocaleString('en-US', { month: 'long', year: 'numeric' });
     return (
       <div>
-        <div className="text-center font-bold text-emerald-600 mb-3 text-base">{name}</div>
+        <div className="text-center font-bold text-red-600 mb-3 text-base">{name}</div>
         <div className="grid grid-cols-7 gap-1.5 mb-2">
           {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d =>
             <div key={d} className="h-6 w-8 flex items-center justify-center text-[10px] text-gray-600 font-bold uppercase">{d}</div>
@@ -200,10 +200,10 @@ function DateRangePicker({ startDate, endDate, onChange }: {
       </div>
       {(startDate || endDate) && (
         <div className="mt-3 flex items-center gap-2 text-xs">
-          {startDate && <span className="px-2 py-1 bg-emerald-600 text-white rounded-md font-semibold shadow-sm">{formatDisplay(startDate)}</span>}
+          {startDate && <span className="px-2 py-1 bg-red-600 text-white rounded-md font-semibold shadow-sm">{formatDisplay(startDate)}</span>}
           {endDate && endDate.toDateString() !== startDate?.toDateString() && (
             <><span className="text-gray-400 font-bold">→</span>
-            <span className="px-2 py-1 bg-emerald-600 text-white rounded-md font-semibold shadow-sm">{formatDisplay(endDate)}</span></>
+            <span className="px-2 py-1 bg-red-600 text-white rounded-md font-semibold shadow-sm">{formatDisplay(endDate)}</span></>
           )}
           <button onClick={() => onChange(null, null)} className="ml-2 px-2 py-0.5 text-[10px] bg-red-50 text-red-600 hover:bg-red-100 border border-red-200 rounded-md font-semibold transition-colors">Clear</button>
         </div>
@@ -409,7 +409,7 @@ export default function DashboardPage() {
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
-        <div className="w-16 h-16 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        <div className="w-16 h-16 border-4 border-red-200 border-t-red-600 rounded-full animate-spin" />
         <div className="text-gray-700 font-semibold">Loading...</div>
       </div>
     </div>
@@ -445,7 +445,7 @@ export default function DashboardPage() {
           {/* Date Range Picker */}
           <div className="relative">
             <label className="block text-xs font-bold text-gray-900 mb-2 uppercase tracking-wide flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-emerald-600" />
+              <Calendar className="w-4 h-4 text-red-600" />
               Date Range
             </label>
             <div className="relative">
@@ -459,7 +459,7 @@ export default function DashboardPage() {
                 }
                 placeholder="Click to select date"
                 onClick={() => setShowCalendar(v => !v)}
-                className="w-full px-3 py-2.5 text-sm bg-white border border-gray-300 rounded-lg cursor-pointer focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-gray-900 placeholder-gray-400 shadow-sm hover:border-emerald-400 transition-all"
+                className="w-full px-3 py-2.5 text-sm bg-white border border-gray-300 rounded-lg cursor-pointer focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 placeholder-gray-400 shadow-sm hover:border-red-400 transition-all"
               />
               <Calendar className="absolute right-3 top-2.5 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
@@ -471,7 +471,7 @@ export default function DashboardPage() {
                 />
                 <div className="flex justify-end mt-4">
                   <button onClick={() => setShowCalendar(false)}
-                    className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm rounded-lg font-semibold shadow-md hover:shadow-lg transition-all">
+                    className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg font-semibold shadow-md hover:shadow-lg transition-all">
                     Done
                   </button>
                 </div>
@@ -555,7 +555,7 @@ export default function DashboardPage() {
             <button
               onClick={() => fetchData()}
               disabled={!startDate || fetchingData}
-              className="w-full px-5 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold uppercase tracking-wide transition-all shadow-md hover:shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed disabled:shadow-none duration-300"
+              className="w-full px-5 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold uppercase tracking-wide transition-all shadow-md hover:shadow-lg disabled:bg-gray-300 disabled:cursor-not-allowed disabled:shadow-none duration-300"
             >
               {fetchingData ? (
                 <span className="flex items-center justify-center gap-2">
@@ -617,8 +617,8 @@ export default function DashboardPage() {
                   onClick={() => handleConnectorTypeChange('AC')}
                   className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-300 ${
                     connectorType === 'AC'
-                      ? 'bg-emerald-600 text-white shadow-md'
-                      : 'text-gray-700 hover:text-emerald-600'
+                      ? 'bg-red-600 text-white shadow-md'
+                      : 'text-gray-700 hover:text-red-600'
                   }`}
                 >
                   AC
@@ -627,8 +627,8 @@ export default function DashboardPage() {
                   onClick={() => handleConnectorTypeChange('Combined')}
                   className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-300 ${
                     connectorType === 'Combined'
-                      ? 'bg-emerald-600 text-white shadow-md'
-                      : 'text-gray-700 hover:text-emerald-600'
+                      ? 'bg-red-600 text-white shadow-md'
+                      : 'text-gray-700 hover:text-red-600'
                   }`}
                 >
                   Combined
@@ -637,8 +637,8 @@ export default function DashboardPage() {
                   onClick={() => handleConnectorTypeChange('DC')}
                   className={`px-4 py-2 rounded-md text-sm font-semibold transition-all duration-300 ${
                     connectorType === 'DC'
-                      ? 'bg-emerald-600 text-white shadow-md'
-                      : 'text-gray-700 hover:text-emerald-600'
+                      ? 'bg-red-600 text-white shadow-md'
+                      : 'text-gray-700 hover:text-red-600'
                   }`}
                 >
                   DC
@@ -652,7 +652,7 @@ export default function DashboardPage() {
               {user?.role === 'admin' && (
                 <button 
                   onClick={() => router.push('/admin-panel')}
-                  className="px-4 py-2 text-sm font-semibold bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-all shadow-md hover:shadow-lg duration-300 flex items-center gap-2"
+                  className="px-4 py-2 text-sm font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all shadow-md hover:shadow-lg duration-300 flex items-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -675,7 +675,7 @@ export default function DashboardPage() {
           {/* Data Message */}
           {dataMessage && (
             <div className="mb-6">
-              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-lg text-sm">
+              <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
                 {dataMessage}
               </div>
             </div>
@@ -685,7 +685,7 @@ export default function DashboardPage() {
           {fetchingData && (
             <div className="flex items-center justify-center py-16">
               <div className="flex flex-col items-center gap-4">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
                 <p className="text-gray-600">Fetching analytics…</p>
               </div>
             </div>

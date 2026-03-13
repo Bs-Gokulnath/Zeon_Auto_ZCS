@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -101,12 +101,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-white flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 to-white flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-2 text-gray-900">
-            Welcome <span className="text-emerald-600">Back</span>
+            Welcome <span className="text-red-600">Back</span>
           </h1>
           <p className="text-gray-600">Login to your account</p>
         </div>
@@ -125,7 +125,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all bg-white text-gray-900"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none transition-all bg-white text-gray-900"
                   placeholder="you@example.com"
                   disabled={loading}
                 />
@@ -138,7 +138,7 @@ export default function LoginPage() {
               )}
 
               {success && (
-                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm">
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                   {success}
                 </div>
               )}
@@ -146,7 +146,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
               >
                 {loading ? 'Sending...' : 'Send OTP'}
               </button>
@@ -164,7 +164,7 @@ export default function LoginPage() {
                   onChange={(e) => setOtp(e.target.value)}
                   required
                   maxLength={6}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all bg-white text-gray-900 text-center text-2xl tracking-widest font-mono"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none transition-all bg-white text-gray-900 text-center text-2xl tracking-widest font-mono"
                   placeholder="000000"
                   disabled={loading}
                 />
@@ -180,7 +180,7 @@ export default function LoginPage() {
               )}
 
               {success && (
-                <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-lg text-sm">
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                   {success}
                 </div>
               )}
@@ -189,7 +189,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-emerald-600 text-white py-3 rounded-lg font-semibold hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
+                  className="w-full bg-red-600 text-white py-3 rounded-lg font-semibold hover:bg-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
                 >
                   {loading ? 'Verifying...' : 'Verify & Login'}
                 </button>
@@ -213,7 +213,7 @@ export default function LoginPage() {
             Don't have an account?{' '}
             <button 
               onClick={() => alert('Public signup is disabled. Please contact administrators:\n\n')}
-              className="text-emerald-600 font-semibold hover:text-emerald-700 transition-colors underline"
+              className="text-red-600 font-semibold hover:text-red-700 transition-colors underline"
             >
               Sign up
             </button>

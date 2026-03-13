@@ -820,8 +820,13 @@ async def dashboard(
             return 0 if stop == "Successful" else 1
 
         df["is_negative"] = df.apply(_is_negative, axis=1).astype(int)
-        # Pre-charging uses is_Preparing flag (not is_Charging == 0)
-        df["is_precharging_fail"] = (df["is_Preparing"].fillna(0) == 1).astype(int)
+        # Pre-charging failures are sessions that reached Preparing but never entered Charging.
+        # Using is_Preparing alone marks almost every normal session as pre-charging because
+        # most sessions begin with a Preparing status before they transition to Charging.
+        df["is_precharging_fail"] = (
+            (df["is_Preparing"].fillna(0) == 1)
+            & (df["is_Charging"].fillna(0) == 0)
+        ).astype(int)
         df["is_charging_fail"] = (
             (df["is_Charging"].fillna(0) == 1) & (df["stop"] == "Failed / Error")
         ).astype(int)
@@ -891,7 +896,11 @@ async def dashboard(
                 "peakPower": peak,
             }
 
-        metrics = {"combined": _compute_metrics(df)}
+        combined_df = df
+        if "connector_id" in df.columns:
+            combined_df = df[df["connector_id"].astype(str).str.strip() != "0"]
+
+        metrics = {"combined": _compute_metrics(combined_df)}
         for c in range(0, 7):
             sub = df[df["connector_id"].astype(str) == str(c)] if "connector_id" in df.columns else pd.DataFrame()
             metrics[f"connector{c}"] = _compute_metrics(sub)

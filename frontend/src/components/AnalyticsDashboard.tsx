@@ -63,7 +63,7 @@ const CustomTooltip = ({ active, payload }: any) => {
       <div className="bg-white px-4 py-3 rounded-lg shadow-xl border border-gray-200">
         <p className="text-sm font-semibold text-gray-900">{payload[0].name}</p>
         <p className="text-sm text-gray-700 mt-1">
-          Value: <span className="font-bold text-emerald-600">{payload[0].value}</span>
+          Value: <span className="font-bold text-red-600">{payload[0].value}</span>
           {payload[0].payload.percentage != null && (
             <span className="ml-1 text-gray-500">({payload[0].payload.percentage}%)</span>
           )}
@@ -93,10 +93,11 @@ const TreeSection: React.FC<{ data: ConnectorMetrics }> = ({ data }) => {
   return (
     <div className="flex flex-col h-full justify-evenly py-2">
       <div className="flex justify-center mb-2">
-        <div className="relative group bg-emerald-50 border-2 border-emerald-200 text-emerald-700 rounded-lg px-4 py-2 text-center shadow-md min-w-[110px] hover:shadow-lg hover:border-emerald-300 transition-all duration-300">
+        <div className="relative group bg-red-50 border-2 border-red-200 text-red-700 rounded-lg px-4 py-2 text-center shadow-md min-w-[110px] hover:shadow-lg hover:border-red-300 transition-all duration-300">
           <div className="relative">
             <div className="text-[10px] font-bold uppercase tracking-wider">Total Sessions</div>
             <div className="text-lg font-bold mt-0.5">{data.totalSessions}</div>
+            <div className="text-[10px] font-semibold mt-0.5 text-red-600">100%</div>
           </div>
         </div>
       </div>
@@ -109,16 +110,18 @@ const TreeSection: React.FC<{ data: ConnectorMetrics }> = ({ data }) => {
       </div>
 
       <div className="flex justify-center gap-3 mb-2">
-        <div className="group bg-green-50 border-2 border-green-200 text-green-700 rounded-lg px-3 py-1.5 text-center shadow-md min-w-[85px] hover:shadow-lg hover:border-green-300 transition-all duration-300">
+        <div className="group bg-rose-50 border-2 border-rose-200 text-rose-700 rounded-lg px-3 py-1.5 text-center shadow-md min-w-[85px] hover:shadow-lg hover:border-rose-300 transition-all duration-300">
           <div className="relative">
             <div className="text-[10px] font-bold uppercase tracking-wide">Charging</div>
             <div className="text-base font-bold mt-0.5">{chargingSessions}</div>
+            <div className="text-[10px] font-semibold mt-0.5 text-rose-700">{chargingPct}% of Total</div>
           </div>
         </div>
-        <div className="group bg-purple-50 border-2 border-purple-200 text-purple-700 rounded-lg px-3 py-1.5 text-center shadow-md min-w-[85px] hover:shadow-lg hover:border-purple-300 transition-all duration-300">
+        <div className="group bg-red-50 border-2 border-red-200 text-red-700 rounded-lg px-3 py-1.5 text-center shadow-md min-w-[85px] hover:shadow-lg hover:border-red-300 transition-all duration-300">
           <div className="relative">
             <div className="text-[10px] font-bold uppercase tracking-wide">Pre Charging</div>
             <div className="text-base font-bold mt-0.5">{data.prechargingFailures}</div>
+            <div className="text-[10px] font-semibold mt-0.5 text-red-700">{prePct}% of Total</div>
           </div>
         </div>
       </div>
@@ -135,17 +138,19 @@ const TreeSection: React.FC<{ data: ConnectorMetrics }> = ({ data }) => {
           <div className="relative">
             <div className="text-[10px] font-bold uppercase tracking-wide">Negative Stops</div>
             <div className="text-sm font-bold mt-0.5">{data.negativeSessions}</div>
+            <div className="text-[10px] font-semibold mt-0.5 text-red-700">{negativePct}% of Charging</div>
           </div>
         </div>
-        <div className="group bg-green-50 border-2 border-green-200 text-green-700 rounded-lg px-2.5 py-1.5 text-center shadow-md min-w-[75px] hover:shadow-lg hover:border-green-300 transition-all duration-300">
+        <div className="group bg-rose-50 border-2 border-rose-200 text-rose-700 rounded-lg px-2.5 py-1.5 text-center shadow-md min-w-[75px] hover:shadow-lg hover:border-rose-300 transition-all duration-300">
           <div className="relative">
             <div className="text-[10px] font-bold uppercase tracking-wide">Positives</div>
             <div className="text-sm font-bold mt-0.5">{data.positiveSessions}</div>
+            <div className="text-[10px] font-semibold mt-0.5 text-rose-700">{positivePct}% of Charging</div>
           </div>
         </div>
       </div>
 
-      <div className={`text-xs font-bold text-center mt-2 px-3 py-1.5 rounded-lg ${isGood ? 'bg-green-50 text-green-700 border-2 border-green-200' : 'bg-red-50 text-red-700 border-2 border-red-200'}`}>
+      <div className={`text-xs font-bold text-center mt-2 px-3 py-1.5 rounded-lg ${isGood ? 'bg-rose-50 text-rose-700 border-2 border-rose-200' : 'bg-red-50 text-red-700 border-2 border-red-200'}`}>
         Success Rate: {rate}% ({data.positiveSessions} / {chargingSessions})
       </div>
     </div>
@@ -158,13 +163,13 @@ const DashboardCard: React.FC<{
   borderColorClass?: string;
   headerAction?: React.ReactNode;
   children: React.ReactNode;
-}> = ({ title, icon: Icon, borderColorClass = 'border-emerald-500', headerAction, children }) => (
+}> = ({ title, icon: Icon, borderColorClass = 'border-red-500', headerAction, children }) => (
   <div className="group bg-white rounded-xl shadow-md hover:shadow-lg border border-gray-200 transition-all duration-300 h-full">
     {/* Modern header */}
     <div className={`px-5 py-4 flex items-center gap-3 bg-gray-50 border-b border-gray-200`}>
       {Icon && (
-        <div className="p-2 rounded-lg bg-emerald-100 border border-emerald-200 group-hover:bg-emerald-200 transition-colors duration-300">
-          <Icon className="w-5 h-5 text-emerald-600" />
+        <div className="p-2 rounded-lg bg-red-100 border border-red-200 group-hover:bg-red-200 transition-colors duration-300">
+          <Icon className="w-5 h-5 text-red-600" />
         </div>
       )}
       <h3 className="text-base font-bold text-gray-900">{title}</h3>
@@ -306,9 +311,9 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
   const [showConnectorModal, setShowConnectorModal] = useState(false);
   const [selectedConnectors, setSelectedConnectors] = useState<number[]>([0, 1, 2, 3]);
   
-  const PIE_COLORS   = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
-  const ERROR_COLORS = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#6366F1'];
-  const COLORS = { blue: '#3B82F6', green: '#10B981', orange: '#F59E0B', red: '#EF4444', purple: '#8B5CF6' };
+  const PIE_COLORS   = ['#2563EB', '#DC2626', '#F59E0B', '#7C3AED', '#EC4899', '#0F766E'];
+  const ERROR_COLORS = ['#DC2626', '#F59E0B', '#2563EB', '#7C3AED', '#9F1239'];
+  const COLORS = { blue: '#2563EB', rose: '#E11D48', orange: '#F59E0B', red: '#DC2626', purple: '#8B5CF6' };
 
   const { metrics, networkPerformance, prechargingFailures, errorBreakdown,
           authMethods, chargingShare, sessionTrend, cpidAnalytics } = analytics;
@@ -360,11 +365,11 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
             <DashboardCard 
               title="Charger Usage & Readiness" 
               icon={Zap} 
-              borderColorClass="border-emerald-500"
+              borderColorClass="border-red-500"
               headerAction={
                 <button
                   onClick={() => setShowConnectorModal(true)}
-                  className="group flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-all shadow-md hover:shadow-lg duration-300"
+                  className="group flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all shadow-md hover:shadow-lg duration-300"
                 >
                   <Settings className="w-4 h-4 group-hover:rotate-90 transition-transform duration-300" />
                   View Connectors
@@ -438,7 +443,7 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
 
         {/* Network Performance by CPID */}
         {cpidData.length > 0 && (
-          <DashboardCard title="3. Network Performance by CPID (Neg Stop%)" icon={Layers} borderColorClass="border-purple-600">
+            <DashboardCard title="3. Network Performance by CPID (Neg Stop%)" icon={Layers} borderColorClass="border-rose-600">
             <ScrollableBar data={cpidData} fill="#A855F7" />
           </DashboardCard>
         )}
@@ -452,7 +457,7 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
 
         {/* Precharging Failures by Station */}
         {preStatData.length > 0 && (
-          <DashboardCard title="5. Precharging Failure by Station" icon={Layers} borderColorClass="border-purple-500">
+            <DashboardCard title="5. Precharging Failure by Station" icon={Layers} borderColorClass="border-rose-500">
             <ScrollableBar data={preStatData} fill="#A855F7" labelType="count" />
           </DashboardCard>
         )}
@@ -460,7 +465,7 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
         {/* Auth Methods & Session Trend */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2">
-            <DashboardCard title="6. Session Trend (Power Quality)" icon={Activity} borderColorClass="border-green-500">
+            <DashboardCard title="6. Session Trend (Power Quality)" icon={Activity} borderColorClass="border-rose-500">
               {trendData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={380}>
                   <LineChart data={trendData} margin={{ top: 10, right: 60, left: 20, bottom: 20 }}>
@@ -469,7 +474,7 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
                       tick={{ fill: '#6b7280', fontSize: 10 }} dy={10} minTickGap={30} />
                     <YAxis yAxisId="left"  axisLine={false} tickLine={false} tick={{ fill: '#F59E0B', fontSize: 9 }} width={40} />
                     <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false}
-                      tick={{ fill: '#10B981', fontSize: 9 }} width={50} />
+                      tick={{ fill: '#E11D48', fontSize: 9 }} width={50} />
                     <Tooltip content={<CustomTooltip />} />
                     <Legend verticalAlign="top" align="right" height={30} iconSize={8}
                       wrapperStyle={{ fontSize: '10px' }}
@@ -489,7 +494,7 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
                     <Line yAxisId="left"  type="monotone" dataKey="peak" name="Peak Power"
                       stroke={COLORS.orange} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                     <Line yAxisId="right" type="monotone" dataKey="avg"  name="Avg Power"
-                      stroke={COLORS.green} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                      stroke={COLORS.rose} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
@@ -499,7 +504,7 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
           </div>
 
           {authData.length > 0 && (
-            <DashboardCard title="Auth Methods" icon={Users} borderColorClass="border-emerald-400">
+            <DashboardCard title="Auth Methods" icon={Users} borderColorClass="border-red-400">
               <ResponsiveContainer width="100%" height={380}>
                 <BarChart data={authData} margin={{ top: 30, right: 20, left: 20, bottom: 40 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
@@ -593,23 +598,23 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
             <div className="bg-gray-50 px-8 py-5 flex items-center justify-between relative overflow-hidden border-b border-gray-200">
               
               <div className="relative flex items-center gap-4">
-                <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 shadow-sm">
-                  <Zap className="w-6 h-6 text-emerald-600" />
+                <div className="p-3 rounded-lg bg-red-50 border border-red-200 shadow-sm">
+                  <Zap className="w-6 h-6 text-red-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-emerald-700 tracking-tight">Connector Details</h2>
+                <h2 className="text-2xl font-bold text-red-700 tracking-tight">Connector Details</h2>
               </div>
               <button
                 onClick={() => setShowConnectorModal(false)}
                 className="relative p-2.5 hover:bg-gray-200 rounded-lg transition-all duration-300 group"
               >
-                <X className="w-6 h-6 text-gray-400 group-hover:text-emerald-600 group-hover:rotate-90 transition-all duration-300" />
+                <X className="w-6 h-6 text-gray-400 group-hover:text-red-600 group-hover:rotate-90 transition-all duration-300" />
               </button>
             </div>
 
             {/* Connector Selection */}
             <div className="px-8 py-5 bg-white border-b border-gray-200">
               <div className="flex items-center gap-4">
-                <span className="text-sm font-bold text-emerald-600 uppercase tracking-wide">Select Connectors:</span>
+                <span className="text-sm font-bold text-red-600 uppercase tracking-wide">Select Connectors:</span>
                 <div className="flex gap-4">
                   {[0, 1, 2, 3, 4, 5, 6].map(num => (
                     <label key={num} className="group flex items-center gap-2.5 cursor-pointer px-3 py-2 rounded-lg hover:bg-gray-50 transition-all">
@@ -617,9 +622,9 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
                         type="checkbox"
                         checked={selectedConnectors.includes(num)}
                         onChange={() => toggleConnector(num)}
-                        className="w-5 h-5 text-emerald-600 bg-white border-gray-300 rounded focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-white transition-all"
+                        className="w-5 h-5 text-red-600 bg-white border-gray-300 rounded focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-white transition-all"
                       />
-                      <span className="text-sm font-semibold text-gray-700 group-hover:text-emerald-600 transition-colors">Connector {num}</span>
+                      <span className="text-sm font-semibold text-gray-700 group-hover:text-red-600 transition-colors">Connector {num}</span>
                     </label>
                   ))}
                 </div>
@@ -641,11 +646,11 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
                         
                         <div className="relative">
                           <div className="flex items-center justify-center gap-2 mb-3">
-                            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-emerald-200" />
-                            <h4 className="text-sm font-bold text-emerald-600 uppercase tracking-wider">
+                            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-red-200" />
+                            <h4 className="text-sm font-bold text-red-600 uppercase tracking-wider">
                               Connector {num}
                             </h4>
-                            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-emerald-200" />
+                            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-red-200" />
                           </div>
                           <TreeSection data={metrics[key]} />
                         </div>
@@ -668,7 +673,7 @@ export default function AnalyticsDashboard({ analytics, connectorType, onConnect
             <div className="px-8 py-5 bg-white border-t border-gray-200 flex justify-end">
               <button
                 onClick={() => setShowConnectorModal(false)}
-                className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg duration-300"
+                className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-all shadow-md hover:shadow-lg duration-300"
               >
                 Close
               </button>
